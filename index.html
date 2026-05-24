@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>勤務表システム</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#1a1a2e;--accent:#e94560;--accent2:#0f3460;
+  --bg:#f0f2f5;--white:#fff;--border:#ddd;
+  --sat:#dbeafe;--sun:#fee2e2;--today:#fef9c3;
+  --ok:#dcfce7;--over:#fee2e2;--under:#fef3c7;
+  --name-ok:#fff;--name-over:#fca5a5;--name-under:#fcd34d;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN',sans-serif;font-size:12px;background:var(--bg);color:#1a1a2e;overflow-x:hidden}
+.hidden{display:none!important}
+
+/* ===== LOADING ===== */
+#loading{position:fixed;inset:0;background:var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px}
+#loading h1{color:var(--accent);font-size:24px}
+#loading p{color:rgba(255,255,255,0.5);font-size:13px}
+.spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== LOGIN ===== */
+#login-screen{position:fixed;inset:0;background:var(--primary);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.login-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px 20px;width:100%;max-width:360px}
+.login-box h1{color:var(--accent);font-size:22px;text-align:center;margin-bottom:4px}
+.login-box .subtitle{color:rgba(255,255,255,0.45);font-size:11px;text-align:center;margin-bottom:20px}
+.member-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-height:260px;overflow-y:auto;margin-bottom:14px;padding-right:2px}
+.member-grid::-webkit-scrollbar{width:4px}
+.member-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:2px}
+.member-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);color:#fff;padding:10px 4px;border-radius:8px;cursor:pointer;font-size:12px;text-align:center;transition:.15s;font-family:inherit}
+.member-btn:active{background:rgba(233,69,96,0.35);border-color:var(--accent);transform:scale(0.96)}
+.admin-btn{width:100%;background:rgba(233,69,96,0.15);border:1px solid var(--accent);color:var(--accent);padding:11px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:4px;transition:.15s;font-family:inherit}
+.admin-btn:active{background:var(--accent);color:#fff}
+.admin-pass-wrap{margin-top:8px;display:none}
+.admin-pass-input{width:100%;padding:9px 12px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:rgba(255,255,255,0.05);color:#fff;font-size:13px;font-family:inherit}
+.admin-pass-submit{width:100%;margin-top:6px;background:var(--accent);border:none;color:#fff;padding:9px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:bold}
+
+/* ===== APP HEADER ===== */
+#app-header{background:var(--primary);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+.hdr-title{font-size:15px;font-weight:bold;color:var(--accent);white-space:nowrap}
+.hdr-month{font-size:12px;flex:1;white-space:nowrap}
+.hdr-user{font-size:11px;background:rgba(255,255,255,0.1);padding:3px 8px;border-radius:20px;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.admin-badge{background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px}
+.hdr-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;margin-left:2px}
+.sync-dot.off{background:#f87171}
+
+/* ===== TOOLBAR ===== */
+#toolbar{background:#fff;padding:6px 10px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+#toolbar::-webkit-scrollbar{display:none}
+.tool-btn{background:#f5f5f5;border:1px solid #ddd;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;flex-shrink:0}
+.tool-btn:active{background:#e0e0e0}
+.month-nav{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0}
+.month-nav button{background:var(--primary);color:#fff;border:none;width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.month-nav span{font-size:12px;font-weight:bold;min-width:60px;text-align:center}
+
+/* ===== LEGEND ===== */
+#legend{padding:5px 10px;background:#fff;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px;font-size:10px;align-items:center}
+.leg{display:flex;align-items:center;gap:2px}
+.leg b{font-weight:bold;min-width:18px;text-align:center;font-size:10px}
+
+/* ===== TABLE CONTAINER ===== */
+#main-container{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:6px;padding-bottom:40px}
+.schedule-wrap{min-width:900px}
+table.sched{border-collapse:collapse;width:100%;font-size:10px;table-layout:fixed}
+table.sched th,table.sched td{border:1px solid #ccc;padding:1px;text-align:center;overflow:hidden}
+table.sched th{background:var(--primary);color:#fff;font-weight:normal;font-size:9px;position:sticky;top:0;z-index:20;white-space:nowrap}
+.col-name{width:60px;text-align:left;padding-left:3px;position:sticky;left:0;z-index:15;background:var(--white);font-size:10px;font-weight:bold}
+th.col-name{background:var(--primary)!important;z-index:30;color:#fff}
+.col-dept{width:36px;font-size:9px;position:sticky;left:60px;z-index:15;background:var(--white)}
+th.col-dept{background:var(--primary)!important;z-index:30;color:#fff}
+.col-sum{width:22px;font-size:9px}
+.col-memo{width:48px;font-size:9px}
+.d-col{width:26px}
+.sat-bg{background:var(--sat)!important}
+.sun-bg{background:var(--sun)!important}
+.today-bg{background:var(--today)!important}
+
+/* ROW HEIGHTS */
+.row-event td{height:20px;background:#eff6ff}
+.row-staff1 td{height:22px}
+.row-staff2 td{height:17px;background:#fafafa}
+.row-sum td{height:20px;background:#e8f0fe;font-weight:bold;font-size:9px}
+
+/* INPUTS */
+select.duty-sel{width:100%;height:20px;border:none;background:transparent;font-size:9px;text-align:center;cursor:pointer;padding:0;font-family:inherit;-webkit-appearance:none;appearance:none}
+input.note-inp{width:100%;border:none;background:transparent;font-size:8px;text-align:center;padding:0;font-family:inherit}
+.readonly-cell{font-size:10px;line-height:22px}
+.readonly-note{font-size:8px;color:#888;line-height:17px}
+
+/* NAME CELL STATUS */
+.name-ok-bg{background:var(--name-ok)!important}
+.name-over-bg{background:var(--name-over)!important}
+.name-under-bg{background:var(--name-under)!important}
+
+/* DUTY COLORS */
+.duty-work{color:#1a1a2e;font-weight:bold}
+.duty-half{color:#0369a1}
+.duty-off{color:#dc2626}
+.duty-paid{color:#7c3aed}
+.duty-other{color:#6b7280}
+
+/* ===== MODALS ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;z-index:500;padding:0}
+@media(min-width:600px){.modal-bg{align-items:center;padding:20px}}
+.modal-box{background:#fff;border-radius:16px 16px 0 0;padding:20px 16px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+@media(min-width:600px){.modal-box{border-radius:16px}}
+.modal-box h3{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0}
+.modal-row:last-child{border-bottom:none}
+.modal-row label{font-size:13px;color:#333}
+.modal-row input,.modal-row select{border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit}
+.modal-row input[type=number]{width:72px}
+.btn-primary{background:var(--primary);color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;width:100%;font-size:13px;font-family:inherit;margin-top:10px}
+.btn-secondary{background:#f5f5f5;color:#333;border:1px solid #ddd;padding:10px;border-radius:8px;cursor:pointer;width:100%;font-size:13px;font-family:inherit;margin-top:6px}
+.staff-hol-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:300px;overflow-y:auto;margin:8px 0}
+.staff-hol-item{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f8f8f8;border-radius:6px}
+.staff-hol-item label{font-size:12px}
+.staff-hol-item input{width:52px;border:1px solid #ddd;border-radius:4px;padding:3px 6px;font-size:12px;text-align:center;font-family:inherit}
+
+/* STAFF MANAGE */
+.staff-list-manage{margin:8px 0;max-height:320px;overflow-y:auto}
+.staff-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0}
+.staff-item input{border:1px solid #ddd;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit}
+.staff-item input.name-input{width:70px}
+.staff-item input.dept-input{width:70px}
+.del-btn{background:#fee2e2;border:none;color:#dc2626;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap}
+.add-staff-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.add-staff-row input{border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;flex:1;min-width:80px}
+.add-staff-row button{background:var(--accent);border:none;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;white-space:nowrap}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;z-index:999;white-space:nowrap;pointer-events:none;animation:toastIn .25s ease}
+.toast.ok{background:#15803d}
+.toast.warn{background:#d97706}
+.toast.err{background:#dc2626}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* OFFLINE BANNER */
+#offline-banner{background:#dc2626;color:#fff;text-align:center;font-size:12px;padding:4px;display:none}
+
+/* PRINT */
+@media print{
+  #login-screen,#loading,#app-header,#toolbar,#legend,#offline-banner{display:none!important}
+  body{font-size:8px}
+  #main-container{padding:0;overflow:visible}
+  .schedule-wrap{min-width:auto}
+  table.sched th,table.sched td{border-color:#999}
+  select.duty-sel{appearance:none;-webkit-appearance:none}
+}
+</style>
+</head>
+<body>
+
+<!-- OFFLINE BANNER -->
+<div id="offline-banner">⚠️ オフライン中 - データは保存されません</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <h1>勤 務 表</h1>
+  <div class="spinner"></div>
+  <p>データを読み込み中...</p>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" class="hidden">
+  <div class="login-box">
+    <h1>勤 務 表</h1>
+    <p class="subtitle" id="login-subtitle">事務職（総務課）</p>
+    <div class="member-grid" id="member-grid"></div>
+    <button class="admin-btn" id="admin-login-btn">🔐 管理者としてログイン</button>
+    <div class="admin-pass-wrap" id="admin-pass-wrap">
+      <input class="admin-pass-input" id="admin-pass" type="password" placeholder="管理者パスワード">
+      <button class="admin-pass-submit" id="admin-pass-submit">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div id="app-header">
+    <span class="hdr-title">勤務表</span>
+    <span class="hdr-month" id="hdr-month"></span>
+    <span class="hdr-user" id="hdr-user">
+      <span id="hdr-user-name"></span>
+      <span class="sync-dot" id="sync-dot" title="リアルタイム同期"></span>
+    </span>
+    <button class="hdr-btn" onclick="logout()">退出</button>
+  </div>
+
+  <div id="toolbar">
+    <button class="tool-btn" id="btn-excel" onclick="exportExcel()">📊 Excel</button>
+    <button class="tool-btn" id="btn-pdf" onclick="exportPDF()">📄 PDF</button>
+    <button class="tool-btn" id="btn-email" onclick="openEmailModal()">📧 メール</button>
+    <button class="tool-btn" id="btn-settings" onclick="openSettingsModal()">⚙️ 公休設定</button>
+    <button class="tool-btn" id="btn-staff" onclick="openStaffModal()">👥 職員管理</button>
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">‹</button>
+      <span id="nav-month"></span>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+  </div>
+
+  <div id="legend">
+    <span class="leg"><b>○</b>勤務(1)</span>
+    <span class="leg"><b>am/△</b>半日AM(0.5)</span>
+    <span class="leg"><b>pm/△</b>半日PM(0.5)</span>
+    <span class="leg"><b>△</b>半休(0.5)</span>
+    <span class="leg"><b>有</b>有休</span>
+    <span class="leg"><b>遅</b>遅刻</span>
+    <span class="leg" style="background:var(--name-over);padding:1px 5px;border-radius:3px">公休超過</span>
+    <span class="leg" style="background:var(--name-under);padding:1px 5px;border-radius:3px">公休不足</span>
+  </div>
+
+  <div id="main-container">
+    <div class="schedule-wrap">
+      <table class="sched" id="sched-table"></table>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal" class="modal-bg hidden">
+  <div class="modal-box">
+    <h3>⚙️ 公休数設定</h3>
+    <div class="modal-row">
+      <label>全員の基準公休数</label>
+      <input type="number" id="base-holiday" value="13" min="1" max="31">
+      <button onclick="applyBaseHoliday()" style="background:var(--accent);border:none;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit">一括適用</button>
+    </div>
+    <p style="font-size:11px;color:#999;margin:6px 0 4px">個人別設定:</p>
+    <div class="staff-hol-grid" id="staff-hol-grid"></div>
+    <button class="btn-primary" onclick="saveSettings()">保存する</button>
+    <button class="btn-secondary" onclick="closeModal('settings-modal')">閉じる</button>
+  </div>
+</div>
+
+<!-- STAFF MODAL -->
+<div id="staff-modal" class="modal-bg hidden">
+  <div class="modal-box">
+    <h3>👥 職員管理</h3>
+    <div class="staff-list-manage" id="staff-list-manage"></div>
+    <div class="add-staff-row">
+      <input id="new-staff-name" placeholder="苗字" maxlength="10">
+      <input id="new-staff-dept" placeholder="所属" maxlength="10">
+      <button onclick="addStaff()">追加</button>
+    </div>
+    <button class="btn-primary" style="margin-top:14px" onclick="closeModal('staff-modal')">完了</button>
+  </div>
+</div>
+
+<!-- EMAIL MODAL -->
+<div id="email-modal" class="modal-bg hidden">
+  <div class="modal-box">
+    <h3>📧 メール送信</h3>
+    <div class="modal-row"><label>宛先</label><input type="email" id="email-to" placeholder="to@example.com" style="width:200px"></div>
+    <div class="modal-row"><label>件名</label><input type="text" id="email-subject" style="width:200px"></div>
+    <p style="font-size:11px;color:#999;margin:8px 0">※メールアプリが起動します。添付ファイルは別途Excel出力してください。</p>
+    <button class="btn-primary" onclick="sendEmail()">メールアプリで開く</button>
+    <button class="btn-secondary" onclick="closeModal('email-modal')">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ===== CONFIG (要変更) =====
+const SUPABASE_URL = 'https://jqlmqmqmuyuejrktiveb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_-jAQZ4vRWLkh7k30Ups2ZA_oDB7h-eQ';
+const ADMIN_PASSWORD = 'admin123';
+// ==========================
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const DUTY_OPTIONS = ['','○','am/△','pm/△','△','有','早','遅','夜','明','=','-','欠'];
+const DUTY_COLORS = {'○':'duty-work','am/△':'duty-half','pm/△':'duty-half','△':'duty-off','有':'duty-paid','早':'duty-work','遅':'duty-other','夜':'duty-other','明':'duty-other','=':'duty-other','-':'duty-other','欠':'duty-off'};
+const JP_HOLIDAYS_BY_MONTH = { 1:[1,2,3], 2:[11,23], 3:[20], 4:[29], 5:[3,4,5,6], 7:[21], 8:[11], 9:[21,23], 10:[13], 11:[3,23], 12:[] };
+
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth() + 1;
+let currentUser = '';
+let isAdmin = false;
+let staffList = [];
+let scheduleData = {}; // {staffId: {day: {duty, note}}}
+let eventData = {};   // {day: content}
+let holidaySettings = {}; // {staffId: count}
+let realtimeChannel = null;
+let pendingSaves = {};
+
+// ===== INIT =====
+async function init() {
+  window.addEventListener('online', () => { document.getElementById('offline-banner').style.display='none'; document.getElementById('sync-dot').className='sync-dot'; });
+  window.addEventListener('offline', () => { document.getElementById('offline-banner').style.display='block'; document.getElementById('sync-dot').className='sync-dot off'; });
+
+  try {
+    await loadStaff();
+    showLogin();
+  } catch(e) {
+    console.error(e);
+    showToast('DB接続エラー。設定を確認してください', 'err');
+    showLogin();
+  }
+  document.getElementById('loading').classList.add('hidden');
+}
+
+async function loadStaff() {
+  const { data, error } = await sb.from('staff').select('*').order('display_order');
+  if (error) throw error;
+  staffList = data || [];
+}
+
+function showLogin() {
+  const grid = document.getElementById('member-grid');
+  grid.innerHTML = '';
+  staffList.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'member-btn';
+    btn.textContent = s.name;
+    btn.onclick = () => loginAs(s.name, false);
+    grid.appendChild(btn);
+  });
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+// ===== LOGIN =====
+document.getElementById('admin-login-btn').onclick = () => {
+  const w = document.getElementById('admin-pass-wrap');
+  w.style.display = w.style.display === 'none' || !w.style.display ? 'block' : 'none';
+  if (w.style.display === 'block') document.getElementById('admin-pass').focus();
+};
+document.getElementById('admin-pass-submit').onclick = tryAdminLogin;
+document.getElementById('admin-pass').onkeydown = e => { if(e.key==='Enter') tryAdminLogin(); };
+function tryAdminLogin() {
+  if (document.getElementById('admin-pass').value === ADMIN_PASSWORD) loginAs('管理者', true);
+  else showToast('パスワードが違います', 'err');
+}
+
+async function loginAs(name, admin) {
+  currentUser = name;
+  isAdmin = admin;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+
+  const userNameEl = document.getElementById('hdr-user-name');
+  userNameEl.textContent = name;
+  if (admin) {
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge';
+    badge.textContent = '管理者';
+    document.getElementById('hdr-user').insertBefore(badge, document.getElementById('sync-dot'));
+  }
+  ['btn-excel','btn-pdf','btn-email','btn-settings','btn-staff'].forEach(id => {
+    document.getElementById(id).style.display = admin ? '' : 'none';
+  });
+
+  await loadMonthData();
+  buildTable();
+  setupRealtime();
+}
+
+function logout() {
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  currentUser = '';
+  isAdmin = false;
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('admin-pass').value = '';
+  document.getElementById('admin-pass-wrap').style.display = 'none';
+  const badge = document.querySelector('.admin-badge');
+  if (badge) badge.remove();
+}
+
+// ===== DATA LOADING =====
+async function loadMonthData() {
+  scheduleData = {};
+  eventData = {};
+  holidaySettings = {};
+  staffList.forEach(s => { scheduleData[s.id] = {}; });
+
+  const [schRes, evtRes, holRes] = await Promise.all([
+    sb.from('schedules').select('*').eq('year', currentYear).eq('month', currentMonth),
+    sb.from('events').select('*').eq('year', currentYear).eq('month', currentMonth),
+    sb.from('holiday_settings').select('*').eq('year', currentYear).eq('month', currentMonth),
+  ]);
+
+  (schRes.data || []).forEach(r => {
+    if (!scheduleData[r.staff_id]) scheduleData[r.staff_id] = {};
+    scheduleData[r.staff_id][r.day] = { duty: r.duty || '', note: r.note || '' };
+  });
+  (evtRes.data || []).forEach(r => { eventData[r.day] = r.content || ''; });
+  (holRes.data || []).forEach(r => { holidaySettings[r.staff_id] = r.holiday_count; });
+
+  updateMonthDisplay();
+}
+
+function updateMonthDisplay() {
+  const label = `${currentYear}年${currentMonth}月`;
+  document.getElementById('hdr-month').textContent = label + ' 勤務表';
+  document.getElementById('nav-month').textContent = `${currentMonth}月`;
+  document.getElementById('email-subject').value = label + ' 勤務表';
+}
+
+// ===== REALTIME =====
+function setupRealtime() {
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  realtimeChannel = sb.channel(`schedules-${currentYear}-${currentMonth}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules', filter: `year=eq.${currentYear}` }, payload => {
+      const r = payload.new || payload.old;
+      if (r && parseInt(r.month) === currentMonth) {
+        if (!scheduleData[r.staff_id]) scheduleData[r.staff_id] = {};
+        if (payload.eventType !== 'DELETE') {
+          scheduleData[r.staff_id][r.day] = { duty: r.duty || '', note: r.note || '' };
+        }
+        refreshCell(r.staff_id, r.day);
+        refreshSummaryCell(r.day);
+        refreshNameCell(r.staff_id);
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, payload => {
+      const r = payload.new;
+      if (r && parseInt(r.year) === currentYear && parseInt(r.month) === currentMonth) {
+        eventData[r.day] = r.content || '';
+        const inp = document.getElementById(`ev-${r.day}`);
+        if (inp && document.activeElement !== inp) inp.value = r.content || '';
+      }
+    })
+    .subscribe(status => {
+      document.getElementById('sync-dot').className = 'sync-dot' + (status === 'SUBSCRIBED' ? '' : ' off');
+    });
+}
+
+// ===== SAVE =====
+async function saveDuty(staffId, day, duty, note) {
+  const key = `${staffId}-${day}`;
+  if (pendingSaves[key]) clearTimeout(pendingSaves[key]);
+  pendingSaves[key] = setTimeout(async () => {
+    try {
+      await sb.from('schedules').upsert({
+        staff_id: staffId, year: currentYear, month: currentMonth, day,
+        duty, note, updated_at: new Date().toISOString(), updated_by: currentUser
+      }, { onConflict: 'staff_id,year,month,day' });
+    } catch(e) { showToast('保存エラー', 'err'); }
+    delete pendingSaves[key];
+  }, 600);
+}
+
+async function saveEvent(day, content) {
+  try {
+    await sb.from('events').upsert({
+      year: currentYear, month: currentMonth, day, content, updated_at: new Date().toISOString()
+    }, { onConflict: 'year,month,day' });
+  } catch(e) { console.error(e); }
+}
+
+// ===== DATE HELPERS =====
+function getDaysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+function getDow(y, m, d) { return new Date(y, m-1, d).getDay(); }
+function getDowLabel(y, m, d) { return ['日','月','火','水','木','金','土'][getDow(y,m,d)]; }
+function isSat(y, m, d) { return getDow(y,m,d) === 6; }
+function isSun(y, m, d) { const jp = JP_HOLIDAYS_BY_MONTH[m] || []; return getDow(y,m,d) === 0 || jp.includes(d); }
+function isToday(y, m, d) { const t = new Date(); return t.getFullYear()===y && t.getMonth()+1===m && t.getDate()===d; }
+function getDayClass(y, m, d) { if(isToday(y,m,d)) return 'today-bg'; if(isSun(y,m,d)) return 'sun-bg'; if(isSat(y,m,d)) return 'sat-bg'; return ''; }
+
+// ===== COUNT =====
+function countHoliday(staffId) {
+  let cnt = 0;
+  const days = getDaysInMonth(currentYear, currentMonth);
+  for (let d = 1; d <= days; d++) {
+    const duty = (scheduleData[staffId]?.[d]?.duty) || '';
+    if (duty === '○') cnt += 1;
+    if (['am/△','pm/△','△'].includes(duty)) cnt += 0.5;
+  }
+  return cnt;
+}
+function countWork(staffId) {
+  let cnt = 0;
+  const days = getDaysInMonth(currentYear, currentMonth);
+  for (let d = 1; d <= days; d++) {
+    const duty = (scheduleData[staffId]?.[d]?.duty) || '';
+    if (['○','早','遅','夜'].includes(duty)) cnt += 1;
+    if (['am/△','pm/△'].includes(duty)) cnt += 0.5;
+  }
+  return cnt;
+}
+function getExpectedHoliday(staffId) { return holidaySettings[staffId] ?? 13; }
+function getDailyCount(day) {
+  let cnt = 0;
+  staffList.forEach(s => {
+    const duty = (scheduleData[s.id]?.[day]?.duty) || '';
+    if (['○','am/△','pm/△','早','遅'].includes(duty)) cnt += duty === 'am/△' || duty === 'pm/△' ? 0.5 : 1;
+  });
+  return cnt;
+}
+function canEditStaff(staffId) {
+  if (isAdmin) return true;
+  const s = staffList.find(x => x.name === currentUser);
+  return s && s.id === staffId;
+}
+
+// ===== BUILD TABLE =====
+function buildTable() {
+  const tbl = document.getElementById('sched-table');
+  tbl.innerHTML = '';
+  const days = getDaysInMonth(currentYear, currentMonth);
+  const dayArr = Array.from({length: days}, (_, i) => i + 1);
+
+  // Header row 1
+  let tr = document.createElement('tr');
+  tr.innerHTML = `<th class="col-name" rowspan="2">氏名</th><th class="col-dept" rowspan="2">所属</th>`;
+  dayArr.forEach(d => {
+    const cls = getDayClass(currentYear, currentMonth, d);
+    const dowCls = isSun(currentYear,currentMonth,d) ? 'style="color:#fca5a5"' : isSat(currentYear,currentMonth,d) ? 'style="color:#93c5fd"' : '';
+    tr.innerHTML += `<th class="d-col ${cls}" ${dowCls}>${d}</th>`;
+  });
+  tr.innerHTML += `<th class="col-sum">出勤</th><th class="col-sum">公休</th><th class="col-sum">有休</th><th class="col-memo">備考</th>`;
+  tbl.appendChild(tr);
+
+  // Header row 2: day of week
+  tr = document.createElement('tr');
+  dayArr.forEach(d => {
+    const cls = getDayClass(currentYear, currentMonth, d);
+    const dow = getDowLabel(currentYear, currentMonth, d);
+    const col = isSun(currentYear,currentMonth,d) ? '#fca5a5' : isSat(currentYear,currentMonth,d) ? '#93c5fd' : '#9ca3af';
+    tr.innerHTML += `<th class="d-col ${cls}" style="color:${col};font-size:8px">${dow}</th>`;
+  });
+  tr.innerHTML += `<th></th><th></th><th></th><th></th>`;
+  tbl.appendChild(tr);
+
+  // Event row
+  tr = document.createElement('tr');
+  tr.className = 'row-event';
+  tr.innerHTML = `<td class="col-name" colspan="2" style="font-size:9px;color:#6b7280;left:0">共通予定</td>`;
+  dayArr.forEach(d => {
+    const cls = getDayClass(currentYear, currentMonth, d);
+    const td = document.createElement('td');
+    td.className = cls;
+    const inp = document.createElement('input');
+    inp.className = 'note-inp';
+    inp.id = `ev-${d}`;
+    inp.value = eventData[d] || '';
+    inp.onchange = e => saveEvent(d, e.target.value);
+    td.appendChild(inp);
+    tr.appendChild(td);
+  });
+  tr.innerHTML += `<td colspan="4"></td>`;
+  tbl.appendChild(tr);
+
+  // Staff rows
+  staffList.forEach(s => appendStaffRows(tbl, s, dayArr));
+
+  // Summary row
+  tr = document.createElement('tr');
+  tr.className = 'row-sum';
+  tr.innerHTML = `<td class="col-name" colspan="2" style="font-size:9px;font-weight:bold;left:0">勤務人数</td>`;
+  dayArr.forEach(d => {
+    const cls = getDayClass(currentYear, currentMonth, d);
+    const cnt = getDailyCount(d);
+    const col = cnt === 0 ? '#d1d5db' : cnt < 3 ? '#f87171' : '#374151';
+    tr.innerHTML += `<td id="sum-${d}" class="${cls}" style="color:${col};font-weight:bold;font-size:9px">${cnt > 0 ? cnt : ''}</td>`;
+  });
+  tr.innerHTML += `<td colspan="4"></td>`;
+  tbl.appendChild(tr);
+}
+
+function appendStaffRows(tbl, s, dayArr) {
+  const hol = countHoliday(s.id);
+  const expected = getExpectedHoliday(s.id);
+  const nameCls = hol > expected ? 'name-over-bg' : hol < expected ? 'name-under-bg' : 'name-ok-bg';
+  const rowBg = s.row_color ? `background:${s.row_color}` : '';
+  const canEdit = canEditStaff(s.id);
+
+  // Row 1
+  let tr = document.createElement('tr');
+  tr.className = 'row-staff1';
+  tr.id = `r1-${s.id}`;
+
+  const nameTd = document.createElement('td');
+  nameTd.rowSpan = 2;
+  nameTd.className = `col-name ${nameCls}`;
+  nameTd.id = `name-${s.id}`;
+  if (rowBg) nameTd.style.cssText = rowBg;
+  nameTd.textContent = s.name;
+
+  const deptTd = document.createElement('td');
+  deptTd.rowSpan = 2;
+  deptTd.className = 'col-dept';
+  deptTd.style.cssText = 'font-size:9px;color:#6b7280' + (rowBg ? ';' + rowBg : '');
+  deptTd.textContent = s.dept;
+
+  tr.appendChild(nameTd);
+  tr.appendChild(deptTd);
+
+  dayArr.forEach(d => {
+    const cls = getDayClass(currentYear, currentMonth, d);
+    const td = document.createElement('td');
+    td.className = cls;
+    if (rowBg) td.style.cssText = rowBg;
+    const duty = (scheduleData[s.id]?.[d]?.duty) || '';
+    if (canEdit) {
+      const sel = document.createElement('select');
+      sel.className = 'duty-sel';
+      sel.id = `sel-${s.id}-${d}`;
+      DUTY_OPTIONS.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt || '　';
+        if (opt === duty) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.onchange = e => {
+        if (!scheduleData[s.id]) scheduleData[s.id] = {};
+        if (!scheduleData[s.id][d]) scheduleData[s.id][d] = { duty: '', note: '' };
+        scheduleData[s.id][d].duty = e.target.value;
+        saveDuty(s.id, d, e.target.value, scheduleData[s.id][d].note || '');
+        refreshNameCell(s.id);
+        refreshSummaryCell(d);
+        checkHolidayAlert(s);
+      };
+      td.appendChild(sel);
+    } else {
+      td.className += ` readonly-cell ${DUTY_COLORS[duty] || ''}`;
+      td.textContent = duty;
+    }
+    tr.appendChild(td);
+  });
+
+  const wk = countWork(s.id);
+  const holDisp = document.createElement('td');
+  holDisp.id = `hol-disp-${s.id}`;
+  holDisp.style.cssText = `font-size:9px;font-weight:bold;color:${hol>expected?'#dc2626':hol<expected?'#d97706':'#15803d'}`;
+  holDisp.textContent = hol;
+  tr.innerHTML += `<td style="font-size:9px;font-weight:bold">${wk}</td>`;
+  tr.appendChild(holDisp);
+  tr.innerHTML += `<td style="font-size:9px"></td><td style="font-size:9px"></td>`;
+  tbl.appendChild(tr);
+
+  // Row 2
+  tr = document.createElement('tr');
+  tr.className = 'row-staff2';
+  tr.id = `r2-${s.id}`;
+  dayArr.forEach(d => {
+    const cls = getDayClass(currentYear, currentMonth, d);
+    const td = document.createElement('td');
+    td.className = cls;
+    if (rowBg) td.style.cssText = rowBg;
+    const note = (scheduleData[s.id]?.[d]?.note) || '';
+    if (canEdit) {
+      const inp = document.createElement('input');
+      inp.className = 'note-inp';
+      inp.id = `note-${s.id}-${d}`;
+      inp.value = note;
+      inp.style.fontSize = '8px';
+      inp.onchange = e => {
+        if (!scheduleData[s.id]) scheduleData[s.id] = {};
+        if (!scheduleData[s.id][d]) scheduleData[s.id][d] = { duty: '', note: '' };
+        scheduleData[s.id][d].note = e.target.value;
+        saveDuty(s.id, d, scheduleData[s.id][d].duty || '', e.target.value);
+      };
+      td.appendChild(inp);
+    } else {
+      td.className += ' readonly-note';
+      td.textContent = note;
+    }
+    tr.appendChild(td);
+  });
+  tr.innerHTML += `<td colspan="4" style="font-size:8px;color:#999;text-align:left;padding-left:3px">前月残</td>`;
+  tbl.appendChild(tr);
+}
+
+// ===== REFRESH HELPERS =====
+function refreshCell(staffId, day) {
+  const sel = document.getElementById(`sel-${staffId}-${day}`);
+  const noteInp = document.getElementById(`note-${staffId}-${day}`);
+  const data = scheduleData[staffId]?.[day] || {};
+  if (sel && document.activeElement !== sel) sel.value = data.duty || '';
+  if (noteInp && document.activeElement !== noteInp) noteInp.value = data.note || '';
+}
+function refreshNameCell(staffId) {
+  const hol = countHoliday(staffId);
+  const expected = getExpectedHoliday(staffId);
+  const td = document.getElementById(`name-${staffId}`);
+  if (!td) return;
+  td.className = td.className.replace(/name-(ok|over|under)-bg/g, '');
+  td.classList.add(hol > expected ? 'name-over-bg' : hol < expected ? 'name-under-bg' : 'name-ok-bg');
+  const holDisp = document.getElementById(`hol-disp-${staffId}`);
+  if (holDisp) {
+    holDisp.textContent = hol;
+    holDisp.style.color = hol > expected ? '#dc2626' : hol < expected ? '#d97706' : '#15803d';
+  }
+}
+function refreshSummaryCell(day) {
+  const td = document.getElementById(`sum-${day}`);
+  if (!td) return;
+  const cnt = getDailyCount(day);
+  td.textContent = cnt > 0 ? cnt : '';
+  td.style.color = cnt === 0 ? '#d1d5db' : cnt < 3 ? '#f87171' : '#374151';
+}
+function checkHolidayAlert(s) {
+  const hol = countHoliday(s.id);
+  const expected = getExpectedHoliday(s.id);
+  if (hol > expected) showToast(`${s.name}：公休数が超過しています（${hol}/${expected}）`, 'warn');
+}
+
+// ===== MONTH NAV =====
+async function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+  if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  await loadMonthData();
+  buildTable();
+  setupRealtime();
+}
+
+// ===== SETTINGS =====
+function openSettingsModal() {
+  if (!isAdmin) { showToast('管理者のみ操作できます', 'err'); return; }
+  document.getElementById('base-holiday').value = 13;
+  const grid = document.getElementById('staff-hol-grid');
+  grid.innerHTML = '';
+  staffList.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'staff-hol-item';
+    item.innerHTML = `<label>${s.name}</label><input type="number" id="sh-${s.id}" value="${getExpectedHoliday(s.id)}" min="1" max="31">`;
+    grid.appendChild(item);
+  });
+  document.getElementById('settings-modal').classList.remove('hidden');
+}
+function applyBaseHoliday() {
+  const base = parseInt(document.getElementById('base-holiday').value) || 13;
+  staffList.forEach(s => { const inp = document.getElementById(`sh-${s.id}`); if(inp) inp.value = base; });
+}
+async function saveSettings() {
+  for (const s of staffList) {
+    const inp = document.getElementById(`sh-${s.id}`);
+    const cnt = parseInt(inp?.value) || 13;
+    holidaySettings[s.id] = cnt;
+    await sb.from('holiday_settings').upsert({
+      staff_id: s.id, year: currentYear, month: currentMonth, holiday_count: cnt
+    }, { onConflict: 'staff_id,year,month' });
+  }
+  closeModal('settings-modal');
+  staffList.forEach(s => refreshNameCell(s.id));
+  showToast('設定を保存しました', 'ok');
+}
+
+// ===== STAFF MANAGE =====
+function openStaffModal() {
+  if (!isAdmin) { showToast('管理者のみ操作できます', 'err'); return; }
+  renderStaffList();
+  document.getElementById('staff-modal').classList.remove('hidden');
+}
+function renderStaffList() {
+  const container = document.getElementById('staff-list-manage');
+  container.innerHTML = '';
+  staffList.forEach((s, i) => {
+    const item = document.createElement('div');
+    item.className = 'staff-item';
+    item.innerHTML = `
+      <span style="font-size:11px;color:#999;width:18px">${i+1}</span>
+      <input class="name-input" value="${s.name}" onchange="updateStaffField('${s.id}','name',this.value)">
+      <input class="dept-input" value="${s.dept}" onchange="updateStaffField('${s.id}','dept',this.value)">
+      <button class="del-btn" onclick="deleteStaff('${s.id}')">削除</button>`;
+    container.appendChild(item);
+  });
+}
+async function updateStaffField(id, field, value) {
+  await sb.from('staff').update({ [field]: value }).eq('id', id);
+  const s = staffList.find(x => x.id === id);
+  if (s) s[field] = value;
+}
+async function addStaff() {
+  const name = document.getElementById('new-staff-name').value.trim();
+  const dept = document.getElementById('new-staff-dept').value.trim() || '総務課';
+  if (!name) { showToast('苗字を入力してください', 'err'); return; }
+  const { data, error } = await sb.from('staff').insert({ name, dept, display_order: staffList.length + 1 }).select().single();
+  if (error) { showToast('追加エラー', 'err'); return; }
+  staffList.push(data);
+  scheduleData[data.id] = {};
+  document.getElementById('new-staff-name').value = '';
+  document.getElementById('new-staff-dept').value = '';
+  renderStaffList();
+  buildTable();
+  showToast(`${name}を追加しました`, 'ok');
+}
+async function deleteStaff(id) {
+  const s = staffList.find(x => x.id === id);
+  if (!confirm(`${s?.name}を削除しますか？`)) return;
+  await sb.from('staff').delete().eq('id', id);
+  staffList = staffList.filter(x => x.id !== id);
+  delete scheduleData[id];
+  renderStaffList();
+  buildTable();
+  showToast('削除しました', 'ok');
+}
+
+// ===== EMAIL =====
+function openEmailModal() {
+  if (!isAdmin) { showToast('管理者のみ操作できます', 'err'); return; }
+  document.getElementById('email-modal').classList.remove('hidden');
+}
+function sendEmail() {
+  const to = document.getElementById('email-to').value;
+  const sub = encodeURIComponent(document.getElementById('email-subject').value);
+  const body = encodeURIComponent(`${currentYear}年${currentMonth}月の勤務表をお送りします。\n添付のExcelファイルをご確認ください。`);
+  if (to) window.open(`mailto:${to}?subject=${sub}&body=${body}`);
+  closeModal('email-modal');
+}
+
+// ===== EXPORT =====
+function exportExcel() {
+  if (!isAdmin) { showToast('管理者のみ出力できます', 'err'); return; }
+  const days = getDaysInMonth(currentYear, currentMonth);
+  const header = ['氏名','所属', ...Array.from({length:days},(_,i)=>i+1), '出勤', '公休', '有休'];
+  const rows = [header];
+  staffList.forEach(s => {
+    const row = [s.name, s.dept];
+    for (let d = 1; d <= days; d++) row.push((scheduleData[s.id]?.[d]?.duty) || '');
+    row.push(countWork(s.id), countHoliday(s.id), '');
+    rows.push(row);
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, `${currentMonth}月勤務表`);
+  XLSX.writeFile(wb, `${currentYear}年${currentMonth}月勤務表.xlsx`);
+  showToast('Excelを出力しました', 'ok');
+}
+function exportPDF() {
+  if (!isAdmin) { showToast('管理者のみ出力できます', 'err'); return; }
+  window.print();
+}
+
+// ===== MODAL =====
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+document.querySelectorAll('.modal-bg').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+});
+
+// ===== TOAST =====
+function showToast(msg, type = '') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ===== START =====
+init();
+</script>
+</body>
+</html>
