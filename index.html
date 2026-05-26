@@ -317,6 +317,9 @@
     </div>
 
     <script>
+        // ☁️ 【設定項目】ここにGoogle Apps Scriptで取得した「ウェブアプリのURL」を入れてください
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyYnvoiOS8H6YuiK--gjYUvxMNQStvRCZCnvXjsDUhDIe8UKjtgmibbAPJGj8ymglUC/exec";
+
         const HOLIDAYS_2026 = [
             "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23",
             "2026-03-20", "2026-04-29", "2026-05-03", "2026-05-04",
@@ -387,11 +390,9 @@
                 state.customRatio = parsed.customRatio !== undefined ? parsed.customRatio : 3.0;
                 state.userCustomOrder = parsed.userCustomOrder || {};
             }
-            
-            // ⭐【修正】重複を徹底的にガードし、最新の「管理者」を必ずデータの最先頭（インデックス0）に固定。すり抜けバグを根絶
-            state.staffsData = state.staffsData.filter(u => u.role !== 'admin');
-            state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
-            
+            if (!state.staffsData.some(u => u.role === 'admin')) {
+                state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
+            }
             applyDynamicStyles();
         }
 
@@ -527,7 +528,7 @@
             document.getElementById("inputCellHeight").value = state.customHeight;
             document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
             document.getElementById("inputGlobalRatio").value = state.customRatio;
-            document.getElementById("valGlobalRatio").textContent = `${embedRatioText(state.customRatio)}`;
+            document.getElementById("valGlobalRatio").textContent = `${Number(state.customRatio).toFixed(1)}倍`;
 
             if (state.isAdmin) {
                 status.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i> ${state.currentUser}`;
@@ -544,10 +545,6 @@
                 document.getElementById("btnDutyMgmt").classList.add("hidden");
                 document.getElementById("btnStaffMgmt").classList.add("hidden");
             }
-        }
-
-        function embedRatioText(val) {
-            return `${Number(val).toFixed(1)}倍`;
         }
 
         function renderTableHeaders() {
@@ -1098,11 +1095,10 @@
             renderAll(); 
         }
 
-        // 🛠️ 画面初期化の処理順番を安全に修正
         document.addEventListener("DOMContentLoaded", () => {
             setInitialCurrentMonth(); 
-            loadData();            // 1. まずデータを完全に読み込む（管理者を最先頭へ強制追加）
-            initLoginSelect();     // 2. 確定した最新データを用いて、ログイン選択肢のプルダウンを生成（バグ原因を解消！）
+            loadData();
+            initLoginSelect();
             
             document.getElementById("authBtn").addEventListener("click", handleLogin);
             document.getElementById("logoutBtn").addEventListener("click", handleLogout);
@@ -1118,7 +1114,7 @@
                 }
             });
 
-            // 📐 リアルタイム幅・高さ調整スライダー
+            // 📐 リアルタイム幅・高さ調整スライダー（完全にCSS優先される形に修正）
             document.getElementById("inputCellWidth").addEventListener("input", (e) => {
                 state.customWidth = parseInt(e.target.value, 10);
                 document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
