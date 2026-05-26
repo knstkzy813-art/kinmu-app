@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V20.1</title>
+    <title>リアルタイム勤務表システム Pro V20.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -16,39 +16,49 @@
             --global-ratio: 3.0;
         }
 
+        /* 勤務セルの基本定義 */
         .duty-cell { 
-            min-width: var(--cell-width); 
-            max-width: var(--cell-width); 
-            height: var(--cell-height); 
+            min-width: var(--cell-width) !important; 
+            max-width: var(--cell-width) !important; 
+            width: var(--cell-width) !important;
+            height: var(--cell-height) !important; 
             text-align: center; 
             font-size: 11px; 
             white-space: nowrap; 
             overflow: hidden; 
         }
         
-        /* 📅 予定・会議行の高さバグを修正 */
+        /* 📅 予定・会議行の縦伸びを徹底的に潰す設定 */
         .global-cell { 
             height: calc(var(--cell-height) * var(--global-ratio)) !important; 
             min-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
             max-height: calc(var(--cell-height) * var(--global-ratio)) !important;
+            padding: 0 !important;
+            overflow: hidden !important;
         }
         
         .global-input-container {
-            height: calc(var(--cell-height) * var(--global-ratio)) !important; 
-            max-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
-            overflow: hidden;
+            display: flex !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-height: calc(var(--cell-height) * var(--global-ratio)) !important;
+            overflow: hidden !important;
         }
 
         .global-input {
+            width: 50% !important;
             height: 100% !important;
             max-height: 100% !important;
             resize: none !important;
-            box-sizing: border-box;
+            box-sizing: border-box !important;
+            outline: none !important;
+            border: none !important;
+            background-color: transparent !important;
         }
         
         /* 📌 テーブルの左側固定設定 */
-        .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; }
-        .sticky-col-2 { position: sticky; left: 70px; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 36px; max-width: 36px; }
+        .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; width: 70px; }
+        .sticky-col-2 { position: sticky; left: 70px; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 36px; max-width: 36px; width: 36px; }
         
         /* 共通予定の縦書き設定 */
         .vertical-text {
@@ -59,6 +69,7 @@
             line-height: 1.1;
             font-size: 10px;
             padding: 2px 0 !important;
+            text-align: center;
         }
 
         /* 👑 ドラッグ中スタイル */
@@ -68,19 +79,18 @@
         }
         
         /* 🔍 全表示（全体俯瞰モード）用のスタイルクラス */
-        .view-all-mode .duty-cell { min-width: 28px !important; max-width: 28px !important; height: 18px !important; font-size: 9px !important; padding: 0 !important; }
+        .view-all-mode .duty-cell { min-width: 28px !important; max-width: 28px !important; width: 28px !important; height: 18px !important; font-size: 9px !important; padding: 0 !important; }
         .view-all-mode .global-cell { height: 54px !important; min-height: 54px !important; max-height: 54px !important; }
-        .view-all-mode .global-input-container { height: 54px !important; max-height: 54px !important; }
         .view-all-mode .vertical-text { font-size: 8px !important; padding: 1px 0 !important; }
-        .view-all-mode .sticky-col { min-width: 45px !important; max-width: 45px !important; font-size: 9px !important; }
-        .view-all-mode .sticky-col-2 { left: 45px !important; min-width: 24px !important; max-width: 24px !important; font-size: 8px !important; }
+        .view-all-mode .sticky-col { min-width: 45px !important; max-width: 45px !important; width: 45px !important; font-size: 9px !important; }
+        .view-all-mode .sticky-col-2 { left: 45px !important; min-width: 24px !important; max-width: 24px !important; width: 24px !important; font-size: 8px !important; }
         .view-all-mode input.duty-input { font-size: 8px !important; }
         .view-all-mode .staff-name-container { max-width: 42px !important; font-size: 9px !important; }
         .view-all-mode .staff-ko-container { font-size: 8px !important; margin-top: 0 !important; }
 
         @media (max-width: 768px) {
-            .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; }
-            .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; font-size: 9px; }
+            .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; width: 65px !important; }
+            .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; width: 32px !important; font-size: 9px; }
             input.duty-input { font-size: 9px; }
             .vertical-text { font-size: 9px; }
         }
@@ -119,7 +129,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V20.1</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V20.2</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -129,10 +139,13 @@
 
         <main class="p-2 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
             
-            <div id="adminSizeConfigPanel" class="hidden bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl shadow-lg p-4 space-y-3">
-                <div class="flex items-center space-x-2 border-b border-slate-700 pb-2">
-                    <i class="fa-solid fa-arrows-to-dot text-amber-400"></i>
-                    <h3 class="text-xs sm:text-sm font-bold tracking-wide text-slate-200">表示サイズ調整（管理者用リアルタイム設定）</h3>
+            <div id="adminSizeConfigPanel" class="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl shadow-lg p-4 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-arrows-to-dot text-amber-400"></i>
+                        <h3 class="text-xs sm:text-sm font-bold tracking-wide text-slate-200">表示サイズ調整（リアルタイム設定）</h3>
+                    </div>
+                    <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300">PC・スマホ両対応</span>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="flex flex-col space-y-1">
@@ -505,29 +518,27 @@
             const adminConfig = document.getElementById("adminConfig");
             const adminMonthConfig = document.getElementById("adminMonthConfig");
             const adminDragNotice = document.getElementById("adminDragNotice");
-            const adminSizeConfigPanel = document.getElementById("adminSizeConfigPanel");
             
+            // スライダーの値表示を同期
+            document.getElementById("inputCellWidth").value = state.customWidth;
+            document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
+            document.getElementById("inputCellHeight").value = state.customHeight;
+            document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
+            document.getElementById("inputGlobalRatio").value = state.customRatio;
+            document.getElementById("valGlobalRatio").textContent = `${Number(state.customRatio).toFixed(1)}倍`;
+
             if (state.isAdmin) {
                 status.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i> ${state.currentUser}`;
                 adminConfig.classList.remove("hidden");
                 adminMonthConfig.classList.remove("hidden");
                 adminDragNotice.classList.remove("hidden");
-                adminSizeConfigPanel.classList.remove("hidden"); 
                 document.getElementById("btnDutyMgmt").classList.remove("hidden");
                 document.getElementById("btnStaffMgmt").classList.remove("hidden");
-
-                document.getElementById("inputCellWidth").value = state.customWidth;
-                document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
-                document.getElementById("inputCellHeight").value = state.customHeight;
-                document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
-                document.getElementById("inputGlobalRatio").value = state.customRatio;
-                document.getElementById("valGlobalRatio").textContent = `${Number(state.customRatio).toFixed(1)}倍`;
             } else {
                 status.innerHTML = `<i class="fa-solid fa-user mr-1"></i> ${state.currentUser}`;
                 adminConfig.classList.add("hidden");
                 adminMonthConfig.classList.add("hidden");
                 adminDragNotice.classList.add("hidden");
-                adminSizeConfigPanel.classList.add("hidden");
                 document.getElementById("btnDutyMgmt").classList.add("hidden");
                 document.getElementById("btnStaffMgmt").classList.add("hidden");
             }
@@ -566,12 +577,12 @@
                 const valMeet = state.globalScheduleMeet[dateStr] || "";
                 const valEvent = state.globalScheduleEvent[dateStr] || "";
                 tdCombined.innerHTML = `
-                    <div class="flex w-full global-input-container divide-x divide-amber-200/60">
+                    <div class="global-input-container divide-x divide-amber-200/60">
                         <textarea data-date="${dateStr}" data-type="meet" placeholder=""
-                            class="global-input w-1/2 p-0 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 font-medium resize-none vertical-text" 
+                            class="global-input p-0 font-medium vertical-text" 
                             ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>
                         <textarea data-date="${dateStr}" data-type="event" placeholder=""
-                            class="global-input w-1/2 p-0 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 font-medium resize-none vertical-text" 
+                            class="global-input p-0 font-medium vertical-text" 
                             ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>
                     </div>`;
                 rowCombined.appendChild(tdCombined);
@@ -1100,7 +1111,7 @@
                 }
             });
 
-            // 📐 リアルタイム幅・高さ調整スライダー（PC・スマホ両対応に修正）
+            // 📐 リアルタイム幅・高さ調整スライダー（完全にCSS優先される形に修正）
             document.getElementById("inputCellWidth").addEventListener("input", (e) => {
                 state.customWidth = parseInt(e.target.value, 10);
                 document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
