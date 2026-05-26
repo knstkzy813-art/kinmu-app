@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V15</title>
+    <title>リアルタイム勤務表システム Pro V17</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* 💻 パソコン用のサイズ設定（勤務が1行で収まる横幅 ＆ 行の高さをさらに狭く） */
+        /* 💻 通常時のサイズ設定 */
         .duty-cell { min-width: 44px; max-width: 44px; height: 24px; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; }
         .global-cell { height: 120px; }
         
-        /* 📌 テーブルの左側（名前・区分・共通予定見出し）固定設定 */
+        /* 📌 テーブルの左側固定設定 */
         .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; }
         .sticky-col-2 { position: sticky; left: 70px; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 36px; max-width: 36px; }
         
@@ -30,7 +30,17 @@
             background-color: #e0e7ff !important;
         }
         
-        /* 📱 スマホ（画面幅768px以下）での表示崩れ防止・最適化設定 */
+        /* 🔍 全表示（全体俯瞰モード）用のスタイルクラス */
+        .view-all-mode .duty-cell { min-width: 28px !important; max-width: 28px !important; height: 18px !important; font-size: 9px !important; padding: 0 !important; }
+        .view-all-mode .global-cell { height: 90px !important; }
+        .view-all-mode .sticky-col { min-width: 45px !important; max-width: 45px !important; font-size: 9px !important; }
+        .view-all-mode .sticky-col-2 { left: 45px !important; min-width: 24px !important; max-width: 24px !important; font-size: 8px !important; }
+        .view-all-mode input.duty-input { font-size: 8px !important; }
+        .view-all-mode .vertical-text { font-size: 8px !important; }
+        .view-all-mode .staff-name-container { max-w-[42px] !important; font-size: 9px !important; }
+        .view-all-mode .staff-ko-container { font-size: 8px !important; margin-top: 0 !important; }
+
+        /* 📱 スマホ（画面幅768px以下）での通常表示最適化 */
         @media (max-width: 768px) {
             .duty-cell { min-width: 42px; max-width: 42px; height: 23px; font-size: 10px; }
             .global-cell { height: 120px; }
@@ -74,7 +84,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V15</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V17</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -109,9 +119,11 @@
                 </div>
 
                 <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                    <button id="btnToggleViewAll" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded flex items-center justify-center space-x-1 shadow-sm transition-colors">
+                        <i class="fa-solid fa-compress"></i> <span id="viewAllBtnText">全表示（縮小）</span>
+                    </button>
                     <button id="btnExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-file-excel"></i> <span>Excel出力</span></button>
                     <button id="btnPdf" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-file-pdf"></i> <span>PDF出力</span></button>
-                    <button id="btnEmail" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-envelope"></i> <span>メール送信</span></button>
                     <button id="btnDutyMgmt" class="hidden bg-amber-600 hover:bg-amber-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-business-time"></i> <span>勤務形態管理</span></button>
                     <button id="btnStaffMgmt" class="hidden bg-gray-600 hover:bg-gray-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-users-gear"></i> <span>職員管理</span></button>
                 </div>
@@ -231,6 +243,7 @@
             isAdmin: false,
             baseOffDays: 9,
             activeCellTarget: null, 
+            isViewAllMode: false, 
             staffsData: [
                 { name: "管理者", pass: "admin", role: "admin" },
                 { name: "佐藤", pass: "1234", role: "user" }
@@ -244,7 +257,7 @@
                 { name: "有/△", offValue: 1 }, { name: "特", offValue: 1 }, { name: "欠", offValue: 0 }, { name: "有/欠", offValue: 0.5 },
                 { name: "欠/有", offValue: 0.5 }, { name: "病", offValue: 0 }, { name: "病/欠", offValue: 0 }, { name: "忌", offValue: 1 },
                 { name: "産", offValue: 1 }, { name: "育", offValue: 1 }, { name: "看", offValue: 0.5 }, { name: "在", offValue: 0 },
-                { name: "在/△", offValue: 0.5 }, { name: "△/在", offValue: 0.5 }, { name: "在/有", offValue: 0.5 }, { name: "有/在", offValue: 0.5 },
+                { name: "在/△", offValue: 0.5 }, { name: "△/在", offValue: 0.5 }, { name: "在/有", offValue: 0.5 }, { name: "有/在", openValue: 0.5 },
                 { name: "措", offValue: 0 }, { name: "am/措", offValue: 0 }, { name: "措/pm", offValue: 0 }, { name: "措/△", offValue: 0.5 },
                 { name: "△/措", offValue: 0.5 }, { name: "措/有", offValue: 0.5 }, { name: "有/措", offValue: 0.5 }
             ], 
@@ -428,8 +441,6 @@
 
             rowDays.innerHTML = `<th class="sticky-col border p-1 text-center bg-gray-100 font-bold">名前</th><th class="sticky-col-2 border p-1 text-center bg-gray-100 font-bold">区分</th>`;
             rowWeeks.innerHTML = `<th class="sticky-col border p-0.5 text-center bg-gray-50"></th><th class="sticky-col-2 border p-0.5 text-center bg-gray-50"></th>`;
-            
-            // ★「会議委員会」と「行事予定」を1行にまとめ、区分2列目の文字（左列・右列）を空欄に
             rowCombined.innerHTML = `<td class="sticky-col border p-1 bg-amber-50 font-bold text-center global-cell align-middle text-[11px] leading-tight">予定・会議</td><td class="sticky-col-2 border p-1 bg-amber-50 text-center font-bold global-cell align-middle text-[10px]"></td>`;
 
             for (let d = 1; d <= daysInMonth; d++) {
@@ -448,17 +459,17 @@
                 thWeek.textContent = weekDaysJa[dayOfWeek];
                 rowWeeks.appendChild(thWeek);
 
-                // ★1つのマスの中に、会議（左）と行事（右）の入力欄を綺麗に並べて1行で表現
+                // 📌 placeholder文字を完全に空にしました（灰色文字を削除）
                 const tdCombined = document.createElement("td");
                 tdCombined.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
                 const valMeet = state.globalScheduleMeet[dateStr] || "";
                 const valEvent = state.globalScheduleEvent[dateStr] || "";
                 tdCombined.innerHTML = `
                     <div class="flex w-full h-full divide-x divide-amber-200/60">
-                        <textarea data-date="${dateStr}" data-type="meet" placeholder="会議"
+                        <textarea data-date="${dateStr}" data-type="meet" placeholder=""
                             class="global-input w-1/2 h-full p-0.5 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
                             ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>
-                        <textarea data-date="${dateStr}" data-type="event" placeholder="行事"
+                        <textarea data-date="${dateStr}" data-type="event" placeholder=""
                             class="global-input w-1/2 h-full p-0.5 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
                             ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>
                     </div>`;
@@ -499,7 +510,7 @@
                 const tdName = document.createElement("td");
                 tdName.className = `sticky-col border p-0.5 font-bold text-xs text-center align-middle ${nameCellClass} ${state.isAdmin ? 'cursor-grab active:cursor-grabbing' : ''}`;
                 tdName.rowSpan = 2;
-                tdName.innerHTML = `<div class="truncate max-w-[65px]">${name}</div><div class="text-[9px] font-bold text-gray-700 mt-0.5">公:${offCount}</div>`;
+                tdName.innerHTML = `<div class="truncate staff-name-container max-w-[65px] mx-auto">${name}</div><div class="text-[9px] font-bold text-gray-700 mt-0.5 staff-ko-container">公:${offCount}</div>`;
                 tr1.appendChild(tdName);
 
                 const tdType1 = document.createElement("td");
@@ -744,6 +755,7 @@
             return val.replace(/〇/g, "○");
         }
 
+        // 📊 Excel出力用ロジック
         function exportToExcelCustom() {
             const daysInMonth = getDaysInMonth(state.currentMonth);
             const [year, month] = state.currentMonth.split('-').map(Number);
@@ -860,6 +872,27 @@
             }
         };
 
+        // 🔍 新機能：全表示（縮小）モードの切り替え処理
+        function toggleViewAllMode() {
+            state.isViewAllMode = !state.isViewAllMode;
+            const container = document.getElementById("tableContainer");
+            const btnText = document.getElementById("viewAllBtnText");
+            const btnIcon = document.querySelector("#btnToggleViewAll i");
+            
+            if (state.isViewAllMode) {
+                container.classList.add("view-all-mode");
+                btnText.textContent = "通常表示に戻す";
+                btnIcon.className = "fa-solid fa-expand";
+                document.getElementById("btnToggleViewAll").className = "bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-3 py-2 rounded flex items-center justify-center space-x-1 shadow-sm transition-colors";
+            } else {
+                container.classList.remove("view-all-mode");
+                btnText.textContent = "全表示（縮小）";
+                btnIcon.className = "fa-solid fa-compress";
+                document.getElementById("btnToggleViewAll").className = "bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded flex items-center justify-center space-x-1 shadow-sm transition-colors";
+            }
+            renderAll(); 
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             setInitialCurrentMonth(); 
             loadData();
@@ -869,6 +902,9 @@
             document.getElementById("logoutBtn").addEventListener("click", handleLogout);
             document.getElementById("closeSelectorModal").addEventListener("click", () => toggleModal("dutySelectorModal", false));
             
+            // 🔍 全表示ボタンのクリックイベント
+            document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
+
             document.getElementById("monthSelect").addEventListener("change", (e) => { 
                 state.currentMonth = e.target.value; 
                 populateDefaultDuties();
@@ -953,7 +989,9 @@
                 }
             });
 
+            // ✨ Excel出力のクリックイベント
             document.getElementById("btnExcel").addEventListener("click", exportToExcelCustom);
+
             document.getElementById("btnPdf").addEventListener("click", () => {
                 const element = document.getElementById("tableContainer");
                 const opt = {
@@ -963,9 +1001,6 @@
                     jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
                 };
                 html2pdf().set(opt).from(element).save();
-            });
-            document.getElementById("btnEmail").addEventListener("click", () => {
-                window.location.href = `mailto:?subject=${encodeURIComponent(`勤務表_${state.currentMonth}`)}`;
             });
         });
     </script>
