@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V11</title>
+    <title>リアルタイム勤務表システム Pro V14</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* 💻 パソコン用のサイズ設定（勤務が1行で収まる横幅 ＆ 高さを狭く） */
-        .duty-cell { min-width: 44px; max-width: 44px; height: 28px; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; }
+        /* 💻 パソコン用のサイズ設定（勤務が1行で収まる横幅 ＆ 行の高さをさらに狭く） */
+        .duty-cell { min-width: 44px; max-width: 44px; height: 24px; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; }
         .global-cell { height: 120px; }
         
-        /* 📌 テーブルの左側（名前・区分）固定設定 */
+        /* 📌 テーブルの左側（名前・区分・共通予定見出し）固定設定 */
         .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; }
         .sticky-col-2 { position: sticky; left: 70px; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 36px; max-width: 36px; }
         
@@ -23,10 +23,16 @@
             text-orientation: mixed;
             white-space: nowrap;
         }
+
+        /* 👑 管理者用のドラッグ中スタイル */
+        .dragging {
+            opacity: 0.4;
+            background-color: #e0e7ff !important;
+        }
         
         /* 📱 スマホ（画面幅768px以下）での表示崩れ防止・最適化設定 */
         @media (max-width: 768px) {
-            .duty-cell { min-width: 42px; max-width: 42px; height: 26px; font-size: 10px; }
+            .duty-cell { min-width: 42px; max-width: 42px; height: 23px; font-size: 10px; }
             .global-cell { height: 120px; }
             .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; }
             .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; font-size: 9px; }
@@ -68,7 +74,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V11</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V14</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -78,16 +84,20 @@
 
         <main class="p-2 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
             <div class="bg-white rounded-xl shadow-sm p-3 sm:p-4 flex flex-col md:flex-wrap md:flex-row gap-3 justify-between items-stretch md:items-center">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex-1 md:flex-none">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
                         <label class="block text-[10px] text-gray-500 font-bold mb-0.5">表示月</label>
-                        <select id="monthSelect" class="w-full md:w-auto border border-gray-300 rounded px-2.5 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                            <option value="2026-05">2026年5月</option>
-                            <option value="2026-06">2026年6月</option>
-                        </select>
+                        <select id="monthSelect" class="w-full md:w-auto border border-gray-300 rounded px-2.5 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 bg-white font-bold"></select>
+                    </div>
+
+                    <div id="adminMonthConfig" class="hidden bg-indigo-50 p-1.5 rounded border border-indigo-200 flex items-center space-x-2 shadow-inner">
+                        <input type="month" id="newMonthInput" class="border border-indigo-300 rounded px-1.5 py-1 text-xs focus:ring-2 focus:ring-indigo-500 bg-white font-medium">
+                        <button id="addMonthBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded font-bold transition-colors shadow-sm">
+                            <i class="fa-solid fa-calendar-plus mr-1"></i>月を追加
+                        </button>
                     </div>
                     
-                    <div id="adminConfig" class="hidden bg-green-50 p-2 rounded border border-green-200 flex items-center space-x-2 shadow-inner w-full md:w-auto">
+                    <div id="adminConfig" class="hidden bg-green-50 p-1.5 rounded border border-green-200 flex items-center space-x-2 shadow-inner w-full md:w-auto">
                         <i class="fa-solid fa-sliders text-green-600 text-xs ml-1"></i>
                         <span class="text-[11px] text-green-700 font-bold">公休基準:</span>
                         <input type="number" id="baseOffDays" value="9" class="w-10 border border-green-300 text-center text-xs font-bold rounded py-0.5 focus:ring-2 focus:ring-green-500">
@@ -112,7 +122,8 @@
                     <thead>
                         <tr id="headerRowDays" class="bg-gray-100 text-[11px] font-bold text-gray-600"></tr>
                         <tr id="headerRowWeeks" class="bg-gray-50 text-[11px] font-bold text-gray-500 border-b border-gray-200"></tr>
-                        <tr id="globalScheduleRow" class="bg-amber-50 text-[11px] font-bold border-b border-gray-300"></tr>
+                        <tr id="globalScheduleRowMeet" class="bg-amber-50/70 text-[11px] font-bold border-b border-dashed border-gray-300"></tr>
+                        <tr id="globalScheduleRowEvent" class="bg-amber-50 text-[11px] font-bold border-b border-gray-300"></tr>
                     </thead>
                     <tbody id="dutyTableBody" class="divide-y divide-gray-200"></tbody>
                     <tfoot>
@@ -130,12 +141,16 @@
                     <span class="inline-block w-3.5 h-3.5 bg-orange-100 border border-orange-300 rounded mr-1.5"></span>
                     <span class="font-bold text-orange-600">橙色：公休不足（働きすぎ・未消化）</span>
                 </div>
+                <div id="adminDragNotice" class="hidden flex items-center text-indigo-600 font-bold">
+                    <i class="fa-solid fa-arrows-up-down mr-1.5"></i>
+                    <span>管理者機能：名前をドラッグすると上下に並び替えできます</span>
+                </div>
             </div>
         </main>
     </div>
 
     <div id="dutySelectorModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] p-3 transition-opacity">
-        <div class="bg-white rounded-xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]">
+        <div class="bg-white rounded-xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center border-b pb-2.5 mb-3">
                 <div>
                     <h3 id="selectorModalTitle" class="font-bold text-base sm:text-lg text-gray-800">勤務を選択</h3>
@@ -143,7 +158,7 @@
                 </div>
                 <button id="closeSelectorModal" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            <div id="dutySelectorGrid" class="grid grid-cols-3 sm:grid-cols-6 gap-2 overflow-y-auto p-0.5 flex-1"></div>
+            <div id="dutySelectorGrid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 overflow-y-auto p-1 flex-1"></div>
         </div>
     </div>
 
@@ -212,6 +227,7 @@
 
         let state = {
             currentMonth: "2026-05",
+            availableMonths: ["2026-05", "2026-06"],
             currentUser: "",
             isAdmin: false,
             baseOffDays: 9,
@@ -221,70 +237,45 @@
                 { name: "佐藤", pass: "1234", role: "user" }
             ],
             dutyStyles: [
-                { name: "", offValue: 0 },
-                { name: "/", offValue: 0 },
-                { name: "研", offValue: 0 },
-                { name: "=", offValue: 0 },
-                { name: "〇=", offValue: 1 },
-                { name: "am/△=", offValue: 0.5 },
-                { name: "ー", offValue: 0 },
-                { name: "〇", offValue: 1 },
-                { name: "早", offValue: 0 },
-                { name: "遅", offValue: 0 },
-                { name: "土残", offValue: 0 },
-                { name: "日勤", offValue: 0 },
-                { name: "am/△", offValue: 0.5 },
-                { name: "△/pm", offValue: 0.5 },
-                { name: "am/有", offValue: 0.5 },
-                { name: "有/pm", offValue: 0.5 },
-                { name: "am/欠", offValue: 0.5 },
-                { name: "欠/pm", offValue: 0.5 },
-                { name: "有", offValue: 1 },
-                { name: "△/有", offValue: 1 },
-                { name: "有/△", offValue: 1 },
-                { name: "特", offValue: 1 },
-                { name: "欠", offValue: 0 },
-                { name: "有/欠", offValue: 0.5 },
-                { name: "欠/有", offValue: 0.5 },
-                { name: "病", offValue: 0 },
-                { name: "病/欠", offValue: 0 },
-                { name: "忌", offValue: 1 },
-                { name: "産", offValue: 1 },
-                { name: "育", offValue: 1 },
-                { name: "看", offValue: 0.5 },
-                { name: "在", offValue: 0 },
-                { name: "在/△", offValue: 0.5 },
-                { name: "△/在", offValue: 0.5 },
-                { name: "在/有", offValue: 0.5 },
-                { name: "有/在", offValue: 0.5 },
-                { name: "措", offValue: 0 },
-                { name: "am/措", offValue: 0 },
-                { name: "措/pm", offValue: 0 },
-                { name: "措/△", offValue: 0.5 },
-                { name: "△/措", offValue: 0.5 },
-                { name: "措/有", offValue: 0.5 },
-                { name: "有/措", offValue: 0.5 }
+                { name: "", offValue: 0 }, { name: "/", offValue: 0 }, { name: "研", offValue: 0 }, { name: "=", offValue: 0 },
+                { name: "〇=", offValue: 1 }, { name: "am/△=", offValue: 0.5 }, { name: "ー", offValue: 0 }, { name: "〇", offValue: 1 },
+                { name: "早", offValue: 0 }, { name: "遅", offValue: 0 }, { name: "土残", offValue: 0 }, { name: "日勤", offValue: 0 },
+                { name: "am/△", offValue: 0.5 }, { name: "△/pm", offValue: 0.5 }, { name: "am/有", offValue: 0.5 }, { name: "有/pm", offValue: 0.5 },
+                { name: "am/欠", offValue: 0.5 }, { name: "欠/pm", offValue: 0.5 }, { name: "有", offValue: 1 }, { name: "△/有", offValue: 1 },
+                { name: "有/△", offValue: 1 }, { name: "特", offValue: 1 }, { name: "欠", offValue: 0 }, { name: "有/欠", offValue: 0.5 },
+                { name: "欠/有", offValue: 0.5 }, { name: "病", offValue: 0 }, { name: "病/欠", offValue: 0 }, { name: "忌", offValue: 1 },
+                { name: "産", offValue: 1 }, { name: "育", offValue: 1 }, { name: "看", offValue: 0.5 }, { name: "在", offValue: 0 },
+                { name: "在/△", offValue: 0.5 }, { name: "△/在", offValue: 0.5 }, { name: "在/有", offValue: 0.5 }, { name: "有/在", offValue: 0.5 },
+                { name: "措", offValue: 0 }, { name: "am/措", offValue: 0 }, { name: "措/pm", offValue: 0 }, { name: "措/△", offValue: 0.5 },
+                { name: "△/措", offValue: 0.5 }, { name: "措/有", offValue: 0.5 }, { name: "有/措", offValue: 0.5 }
             ], 
-            globalSchedule: {},
-            duties: {},
+            globalScheduleMeet: {}, 
+            globalScheduleEvent: {}, 
+            duties: {}, 
         };
 
+        function setInitialCurrentMonth() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const target = `${y}-${m}`;
+            state.currentMonth = target;
+            if (!state.availableMonths.includes(target)) {
+                state.availableMonths.push(target);
+                state.availableMonths.sort();
+            }
+        }
+
         function loadData() {
-            const saved = localStorage.getItem("gemini_duty_system_v11_state");
+            const saved = localStorage.getItem("gemini_duty_system_v13_state");
             if (saved) {
                 const parsed = JSON.parse(saved);
                 state.staffsData = parsed.staffsData || state.staffsData;
                 state.duties = parsed.duties || state.duties;
-                state.globalSchedule = parsed.globalSchedule || state.globalSchedule;
+                state.globalScheduleMeet = parsed.globalScheduleMeet || parsed.globalSchedule || {};
+                state.globalScheduleEvent = parsed.globalScheduleEvent || {};
                 state.baseOffDays = parsed.baseOffDays !== undefined ? parsed.baseOffDays : 9;
-                
-                if (parsed.dutyStyles) {
-                    parsed.dutyStyles.forEach(s => {
-                        if (!state.dutyStyles.some(x => x.name === s.name)) {
-                            state.dutyStyles.push(s);
-                        }
-                    });
-                }
+                state.availableMonths = parsed.availableMonths || state.availableMonths;
             }
             if (!state.staffsData.some(u => u.role === 'admin')) {
                 state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
@@ -292,7 +283,7 @@
         }
 
         function saveData() {
-            localStorage.setItem("gemini_duty_system_v11_state", JSON.stringify(state));
+            localStorage.setItem("gemini_duty_system_v13_state", JSON.stringify(state));
         }
 
         function getDaysInMonth(yearMonth) {
@@ -317,18 +308,36 @@
         }
 
         function populateDefaultDuties() {
-            const daysInMonth = getDaysInMonth(state.currentMonth);
+            const m = state.currentMonth;
+            if (!state.duties[m]) state.duties[m] = {};
+
+            const daysInMonth = getDaysInMonth(m);
             state.staffsData.forEach(user => {
                 const name = user.name;
-                if (!state.duties[name]) state.duties[name] = {};
+                if (user.role === 'admin') return;
+                
+                if (!state.duties[m][name]) state.duties[m][name] = {};
                 for (let d = 1; d <= daysInMonth; d++) {
-                    const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
-                    if (!state.duties[name][dateStr] || state.duties[name][dateStr].d1 === "" || state.duties[name][dateStr].d1 === "ー") {
-                        state.duties[name][dateStr] = { d1: getDefaultDutyForDate(dateStr), d2: "", bg: "" };
+                    const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                    if (!state.duties[m][name][dateStr]) {
+                        state.duties[m][name][dateStr] = { d1: getDefaultDutyForDate(dateStr), d2: "", bg: "" };
                     }
                 }
             });
             saveData();
+        }
+
+        function updateMonthSelectOptions() {
+            const select = document.getElementById("monthSelect");
+            select.innerHTML = "";
+            state.availableMonths.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m;
+                const [y, mm] = m.split('-');
+                opt.textContent = `${y}年${mm}月`;
+                if (m === state.currentMonth) opt.selected = true;
+                select.appendChild(opt);
+            });
         }
 
         function initLoginSelect() {
@@ -353,6 +362,7 @@
                 document.getElementById("mainSystem").classList.remove("hidden");
                 document.getElementById("loginPassword").value = "";
                 populateDefaultDuties();
+                updateMonthSelectOptions();
                 renderAll();
             } else {
                 alert("❌ パスワードが正しくありません。");
@@ -380,20 +390,30 @@
             renderTableBody();
             renderTotals();
             updateAdminUIControls();
+            if(state.isAdmin) {
+                initDragAndDrop();
+            }
         }
 
         function updateAdminUIControls() {
             document.getElementById("baseOffDays").value = state.baseOffDays;
             const status = document.getElementById("loginStatus");
             const adminConfig = document.getElementById("adminConfig");
+            const adminMonthConfig = document.getElementById("adminMonthConfig");
+            const adminDragNotice = document.getElementById("adminDragNotice");
+            
             if (state.isAdmin) {
                 status.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i> ${state.currentUser}`;
                 adminConfig.classList.remove("hidden");
+                adminMonthConfig.classList.remove("hidden");
+                adminDragNotice.classList.remove("hidden");
                 document.getElementById("btnDutyMgmt").classList.remove("hidden");
                 document.getElementById("btnStaffMgmt").classList.remove("hidden");
             } else {
                 status.innerHTML = `<i class="fa-solid fa-user mr-1"></i> ${state.currentUser}`;
                 adminConfig.classList.add("hidden");
+                adminMonthConfig.classList.add("hidden");
+                adminDragNotice.classList.add("hidden");
                 document.getElementById("btnDutyMgmt").classList.add("hidden");
                 document.getElementById("btnStaffMgmt").classList.add("hidden");
             }
@@ -405,11 +425,14 @@
 
             const rowDays = document.getElementById("headerRowDays");
             const rowWeeks = document.getElementById("headerRowWeeks");
-            const rowGlobal = document.getElementById("globalScheduleRow");
+            const rowMeet = document.getElementById("globalScheduleRowMeet");
+            const rowEvent = document.getElementById("globalScheduleRowEvent");
 
             rowDays.innerHTML = `<th class="sticky-col border p-1 text-center bg-gray-100 font-bold">名前</th><th class="sticky-col-2 border p-1 text-center bg-gray-100 font-bold">区分</th>`;
             rowWeeks.innerHTML = `<th class="sticky-col border p-0.5 text-center bg-gray-50"></th><th class="sticky-col-2 border p-0.5 text-center bg-gray-50"></th>`;
-            rowGlobal.innerHTML = `<td class="sticky-col border p-1 bg-amber-50 font-bold text-center global-cell align-middle text-xs">共通予定</td><td class="sticky-col-2 border p-1 bg-amber-50 text-center font-bold global-cell align-middle text-xs">全員可</td>`;
+            
+            rowMeet.innerHTML = `<td class="sticky-col border p-1 bg-amber-50/70 font-bold text-center global-cell align-middle text-[11px] leading-tight">会議<br>委員会</td><td class="sticky-col-2 border p-1 bg-amber-50/70 text-center font-bold global-cell align-middle text-[10px]">左列</td>`;
+            rowEvent.innerHTML = `<td class="sticky-col border p-1 bg-amber-50 font-bold text-center global-cell align-middle text-[11px] leading-tight">行事<br>予定</td><td class="sticky-col-2 border p-1 bg-amber-50 text-center font-bold global-cell align-middle text-[10px]">右列</td>`;
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month - 1, d);
@@ -427,14 +450,23 @@
                 thWeek.textContent = weekDaysJa[dayOfWeek];
                 rowWeeks.appendChild(thWeek);
 
-                const tdGlobal = document.createElement("td");
-                tdGlobal.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
-                const val = state.globalSchedule[dateStr] || "";
-                tdGlobal.innerHTML = `
-                    <textarea data-date="${dateStr}" 
+                const tdMeet = document.createElement("td");
+                tdMeet.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
+                const valMeet = state.globalScheduleMeet[dateStr] || "";
+                tdMeet.innerHTML = `
+                    <textarea data-date="${dateStr}" data-type="meet"
                         class="global-input w-full h-full p-1 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
-                        ${!state.isAdmin ? 'disabled' : ''}>${val}</textarea>`;
-                rowGlobal.appendChild(tdGlobal);
+                        ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>`;
+                rowMeet.appendChild(tdMeet);
+
+                const tdEvent = document.createElement("td");
+                tdEvent.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
+                const valEvent = state.globalScheduleEvent[dateStr] || "";
+                tdEvent.innerHTML = `
+                    <textarea data-date="${dateStr}" data-type="event"
+                        class="global-input w-full h-full p-1 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
+                        ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>`;
+                rowEvent.appendChild(tdEvent);
             }
         }
 
@@ -442,6 +474,7 @@
             const tbody = document.getElementById("dutyTableBody");
             tbody.innerHTML = "";
             const daysInMonth = getDaysInMonth(state.currentMonth);
+            const m = state.currentMonth;
 
             state.staffsData.forEach(user => {
                 if (user.role === 'admin') return;
@@ -460,13 +493,19 @@
                     rowBgClass = "bg-orange-50/30";
                 }
 
+                // ★2行セット（勤務行とメモ行）をまとめる仮想コンテナとしてtbody直下に構成
                 const tr1 = document.createElement("tr");
-                tr1.className = rowBgClass;
+                tr1.className = `${rowBgClass} staff-row-group`;
+                tr1.dataset.staffName = name; // 並び替え用に名前をセット
+                if(state.isAdmin) {
+                    tr1.draggable = true; // 管理者のみドラッグ可能に
+                }
 
                 const tdName = document.createElement("td");
-                tdName.className = `sticky-col border p-0.5 font-bold text-xs text-center align-middle ${nameCellClass}`;
+                // ★公休数の文字色を濃く（text-gray-700）、行幅をさらに狭く調整
+                tdName.className = `sticky-col border p-0.5 font-bold text-xs text-center align-middle ${nameCellClass} ${state.isAdmin ? 'cursor-grab active:cursor-grabbing' : ''}`;
                 tdName.rowSpan = 2;
-                tdName.innerHTML = `<div class="truncate max-w-[65px]">${name}</div><div class="text-[9px] font-normal text-gray-400 mt-0.5">公:${offCount}</div>`;
+                tdName.innerHTML = `<div class="truncate max-w-[65px]">${name}</div><div class="text-[9px] font-bold text-gray-700 mt-0.5">公:${offCount}</div>`;
                 tr1.appendChild(tdName);
 
                 const tdType1 = document.createElement("td");
@@ -475,7 +514,8 @@
                 tr1.appendChild(tdType1);
 
                 const tr2 = document.createElement("tr");
-                tr2.className = rowBgClass;
+                tr2.className = `${rowBgClass} staff-row-sub-group`;
+                tr2.dataset.staffName = name;
                 
                 const tdType2 = document.createElement("td");
                 tdType2.className = "sticky-col-2 border p-0.5 text-[10px] text-gray-500 text-center bg-gray-50 font-medium align-middle";
@@ -485,8 +525,10 @@
                 const canEdit = state.isAdmin || (state.currentUser === name);
 
                 for (let d = 1; d <= daysInMonth; d++) {
-                    const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
-                    const cellData = state.duties[name][dateStr] || { d1: "", d2: "", bg: "" };
+                    const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                    const cellData = (state.duties[m] && state.duties[m][name] && state.duties[m][name][dateStr]) 
+                                     ? state.duties[m][name][dateStr] 
+                                     : { d1: "", d2: "", bg: "" };
                     const colBgClass = cellData.bg || getDayBgClass(dateStr);
 
                     const tdCell1 = document.createElement("td");
@@ -518,12 +560,67 @@
             });
         }
 
+        // ★管理者機能：ドラッグ＆ドロップ並び替えの制御処理
+        function initDragAndDrop() {
+            const tbody = document.getElementById("dutyTableBody");
+            let dragTargetName = null;
+
+            tbody.addEventListener("dragstart", (e) => {
+                const row = e.target.closest('.staff-row-group');
+                if (!row) return;
+                dragTargetName = row.dataset.staffName;
+                
+                // 相対するメモ行も合わせてハイライト
+                row.classList.add("dragging");
+                const subRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
+                if(subRow) subRow.classList.add("dragging");
+            });
+
+            tbody.addEventListener("dragend", (e) => {
+                const row = e.target.closest('.staff-row-group');
+                if (!row) return;
+                
+                row.classList.remove("dragging");
+                const subRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
+                if(subRow) subRow.classList.remove("dragging");
+                dragTargetName = null;
+            });
+
+            tbody.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                const targetRow = e.target.closest('.staff-row-group, .staff-row-sub-group');
+                if (!targetRow || !dragTargetName) return;
+                
+                const targetName = targetRow.dataset.staffName;
+                if (targetName === dragTargetName) return;
+
+                // 配列データの入れ替え
+                const idxSource = state.staffsData.findIndex(u => u.name === dragTargetName);
+                const idxTarget = state.staffsData.findIndex(u => u.name === targetName);
+                
+                if (idxSource !== -1 && idxTarget !== -1) {
+                    const [removed] = state.staffsData.splice(idxSource, 1);
+                    state.staffsData.splice(idxTarget, 0, removed);
+                    
+                    saveData();
+                    // 表示を崩さずリアルタイムに並び替えるため再描画
+                    renderTableBody();
+                    // ドラッグ状態を維持するための再設定
+                    const newRow = tbody.querySelector(`.staff-row-group[data-staff-name="${dragTargetName}"]`);
+                    const newSubRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
+                    if(newRow) newRow.classList.add("dragging");
+                    if(newSubRow) newSubRow.classList.add("dragging");
+                }
+            });
+        }
+
         function openDutySelector(name, dateStr) {
             state.activeCellTarget = { name, dateStr };
             const modal = document.getElementById("dutySelectorModal");
             const title = document.getElementById("selectorModalTitle");
             const sub = document.getElementById("selectorModalSub");
             const grid = document.getElementById("dutySelectorGrid");
+            const m = state.currentMonth;
             
             title.textContent = `${name} さんの勤務選択`;
             sub.textContent = `対象日: ${dateStr}`;
@@ -531,16 +628,16 @@
             
             state.dutyStyles.forEach(style => {
                 const btn = document.createElement("button");
-                const currentVal = state.duties[name][dateStr].d1;
+                const currentVal = state.duties[m][name][dateStr].d1;
                 
-                btn.className = `p-2.5 text-xs sm:text-sm font-bold border rounded-lg transition-all text-center truncate shadow-sm active:scale-95
+                btn.className = `p-2 text-xs font-bold border rounded transition-all text-center truncate shadow-sm active:scale-95 min-h-[36px]
                     ${currentVal === style.name 
                         ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-200' 
                         : 'bg-gray-50 hover:bg-indigo-50 text-gray-700 border-gray-200'}`;
                 
                 btn.textContent = style.name || "ー";
                 btn.addEventListener("click", () => {
-                    state.duties[name][dateStr].d1 = style.name;
+                    state.duties[m][name][dateStr].d1 = style.name;
                     saveData();
                     renderAll();
                     toggleModal("dutySelectorModal", false);
@@ -552,13 +649,14 @@
         }
 
         function calculateOffDays(name) {
-            if (!state.duties[name]) return 0;
+            const m = state.currentMonth;
+            if (!state.duties[m] || !state.duties[m][name]) return 0;
             let totalOff = 0;
-            const daysInMonth = getDaysInMonth(state.currentMonth);
+            const daysInMonth = getDaysInMonth(m);
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
-                if (state.duties[name][dateStr]) {
-                    const d1 = state.duties[name][dateStr].d1;
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                if (state.duties[m][name][dateStr]) {
+                    const d1 = state.duties[m][name][dateStr].d1;
                     const matchedStyle = state.dutyStyles.find(s => s.name === d1);
                     if (matchedStyle) totalOff += Number(matchedStyle.offValue);
                 }
@@ -570,17 +668,18 @@
             const footer = document.getElementById("totalCountRow");
             footer.innerHTML = `<td class="sticky-col border p-1 text-center bg-indigo-50 font-bold text-xs">出勤人数</td><td class="sticky-col-2 border p-0.5 bg-indigo-50"></td>`;
             const daysInMonth = getDaysInMonth(state.currentMonth);
+            const m = state.currentMonth;
             
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
                 let leftCount = 0;
                 let rightCount = 0;
 
                 state.staffsData.forEach(user => {
                     if (user.role === 'admin') return;
                     const name = user.name;
-                    if (state.duties[name] && state.duties[name][dateStr]) {
-                        const d1 = state.duties[name][dateStr].d1;
+                    if (state.duties[m] && state.duties[m][name] && state.duties[m][name][dateStr]) {
+                        const d1 = state.duties[m][name][dateStr].d1;
                         if (d1 === "/" || d1 === "am/△") leftCount++;
                         if (d1 === "/" || d1 === "△/pm") rightCount++;
                     }
@@ -596,6 +695,7 @@
         function showColorPicker(e, name, date) {
             e.preventDefault();
             if (!state.isAdmin) return;
+            const m = state.currentMonth;
             const colors = [
                 { class: "", label: "クリア" },
                 { class: "bg-yellow-200", label: "黄" },
@@ -612,7 +712,7 @@
                 btn.className = `px-2 py-1.5 rounded border font-bold ${c.class || 'bg-white'}`;
                 btn.textContent = c.label;
                 btn.onclick = () => {
-                    state.duties[name][date].bg = c.class;
+                    state.duties[m][name][date].bg = c.class;
                     saveData();
                     renderAll();
                     document.body.removeChild(menu);
@@ -658,6 +758,7 @@
         function exportToExcelCustom() {
             const daysInMonth = getDaysInMonth(state.currentMonth);
             const [year, month] = state.currentMonth.split('-').map(Number);
+            const m = state.currentMonth;
             let matrix = [];
             
             let r1 = ["名前", "区分"];
@@ -671,12 +772,19 @@
             }
             matrix.push(r2);
             
-            let r3 = ["共通予定", "全員可"];
+            let rMeet = ["会議委員会", "左列"];
             for(let d=1; d<=daysInMonth; d++) {
-                const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
-                r3.push(state.globalSchedule[dateStr] || "");
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                rMeet.push(state.globalScheduleMeet[dateStr] || "");
             }
-            matrix.push(r3);
+            matrix.push(rMeet);
+
+            let rEvent = ["行事予定", "右列"];
+            for(let d=1; d<=daysInMonth; d++) {
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                rEvent.push(state.globalScheduleEvent[dateStr] || "");
+            }
+            matrix.push(rEvent);
             
             state.staffsData.forEach(user => {
                 if(user.role === 'admin') return;
@@ -686,8 +794,8 @@
                 let rowMemo = ["", "メモ"];
                 
                 for(let d=1; d<=daysInMonth; d++) {
-                    const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
-                    const cell = state.duties[name]?.[dateStr] || {d1:"", d2:""};
+                    const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                    const cell = state.duties[m]?.[name]?.[dateStr] || {d1:"", d2:""};
                     rowDuty.push(cleanSymbolForExcel(cell.d1));
                     rowMemo.push(cell.d2 || "");
                 }
@@ -697,11 +805,11 @@
             
             let rTotal = ["出勤人数", ""];
             for(let d=1; d<=daysInMonth; d++) {
-                const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
                 let leftCount = 0, rightCount = 0;
                 state.staffsData.forEach(user => {
                     if (user.role === 'admin') return;
-                    const d1 = state.duties[user.name]?.[dateStr]?.d1;
+                    const d1 = state.duties[m]?.[user.name]?.[dateStr]?.d1;
                     if (d1 === "/" || d1 === "am/△") leftCount++;
                     if (d1 === "/" || d1 === "△/pm") rightCount++;
                 });
@@ -712,6 +820,7 @@
             const ws = XLSX.utils.aoa_to_sheet(matrix);
             ws['!rows'] = [];
             ws['!rows'][2] = { hpt: 60 }; 
+            ws['!rows'][3] = { hpt: 60 }; 
             
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "勤務表");
@@ -769,8 +878,10 @@
         };
 
         document.addEventListener("DOMContentLoaded", () => {
+            setInitialCurrentMonth(); 
             loadData();
             initLoginSelect();
+            
             document.getElementById("authBtn").addEventListener("click", handleLogin);
             document.getElementById("logoutBtn").addEventListener("click", handleLogout);
             document.getElementById("closeSelectorModal").addEventListener("click", () => toggleModal("dutySelectorModal", false));
@@ -780,6 +891,27 @@
                 populateDefaultDuties();
                 renderAll(); 
             });
+
+            document.getElementById("addMonthBtn").addEventListener("click", () => {
+                if(!state.isAdmin) return;
+                const newMonthVal = document.getElementById("newMonthInput").value; 
+                if(!newMonthVal) { alert("追加したい月を選択してください。"); return; }
+                
+                if(state.availableMonths.includes(newMonthVal)) {
+                    alert("⚠️ その月はすでに存在しています。");
+                    return;
+                }
+                
+                state.availableMonths.push(newMonthVal);
+                state.availableMonths.sort(); 
+                state.currentMonth = newMonthVal; 
+                
+                populateDefaultDuties();
+                updateMonthSelectOptions();
+                renderAll();
+                alert(`📅 ${newMonthVal.split('-')[0]}年${newMonthVal.split('-')[1]}月 を新しく追加しました！`);
+            });
+
             document.getElementById("saveConfigBtn").addEventListener("click", () => {
                 if(!state.isAdmin) return;
                 const val = parseInt(document.getElementById("baseOffDays").value, 10);
@@ -787,18 +919,25 @@
                 saveData(); renderAll(); 
                 alert(`🎯 公休基準値を「 ${state.baseOffDays} 日 」に一括適用しました。`);
             });
+
             document.getElementById("dutyTable").addEventListener("change", (e) => {
+                const m = state.currentMonth;
                 if (e.target.classList.contains("duty-input")) {
                     const { name, date, row } = e.target.dataset;
-                    state.duties[name][date][row] = e.target.value;
+                    state.duties[m][name][date][row] = e.target.value;
                     saveData(); renderAll();
                 }
                 if (e.target.tagName === "TEXTAREA" && e.target.classList.contains("global-input")) {
-                    const { date } = e.target.dataset;
-                    state.globalSchedule[date] = e.target.value;
+                    const { date, type } = e.target.dataset;
+                    if (type === "meet") {
+                        state.globalScheduleMeet[date] = e.target.value;
+                    } else if (type === "event") {
+                        state.globalScheduleEvent[date] = e.target.value;
+                    }
                     saveData(); renderAll();
                 }
             });
+
             document.getElementById("btnDutyMgmt").addEventListener("click", () => { if(!state.isAdmin) return; renderDutyMgmtList(); toggleModal("dutyModal", true); });
             document.getElementById("closeDutyModal").addEventListener("click", () => toggleModal("dutyModal", false));
             document.getElementById("btnStaffMgmt").addEventListener("click", () => { if(!state.isAdmin) return; renderStaffMgmtList(); toggleModal("staffModal", true); });
