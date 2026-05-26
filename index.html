@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V20</title>
+    <title>リアルタイム勤務表システム Pro V20.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -26,11 +26,23 @@
             overflow: hidden; 
         }
         
-        /* 📅 予定・会議行の高さ */
+        /* 📅 予定・会議行の高さの計算を厳密に修正 */
         .global-cell { 
             height: calc(var(--cell-height) * var(--global-ratio)) !important; 
             min-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
             max-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
+        }
+        
+        .global-input-container {
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: 100% !important;
+        }
+
+        .global-input {
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: 100% !important;
         }
         
         /* 📌 テーブルの左側固定設定 */
@@ -105,7 +117,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V20</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V20.1</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -306,11 +318,11 @@
             baseOffDays: 9,
             activeCellTarget: null, 
             isViewAllMode: false,
-            isOrderEditMode: false, // 🔄 勤務選択ポップアップの並び替えモードフラグ
+            isOrderEditMode: false, 
             customWidth: 44,
             customHeight: 24,
             customRatio: 3.0,
-            userCustomOrder: {}, // 🔄 各自のポップアップ並び順を保持（オブジェクト形式）
+            userCustomOrder: {}, 
             staffsData: [
                 { name: "管理者", pass: "admin", role: "admin" },
                 { name: "佐藤", pass: "1234", role: "user" }
@@ -358,7 +370,7 @@
                 state.customWidth = parsed.customWidth !== undefined ? parsed.customWidth : 44;
                 state.customHeight = parsed.customHeight !== undefined ? parsed.customHeight : 24;
                 state.customRatio = parsed.customRatio !== undefined ? parsed.customRatio : 3.0;
-                state.userCustomOrder = parsed.userCustomOrder || {}; // ロード
+                state.userCustomOrder = parsed.userCustomOrder || {};
             }
             if (!state.staffsData.some(u => u.role === 'admin')) {
                 state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
@@ -552,12 +564,12 @@
                 const valMeet = state.globalScheduleMeet[dateStr] || "";
                 const valEvent = state.globalScheduleEvent[dateStr] || "";
                 tdCombined.innerHTML = `
-                    <div class="flex w-full h-full divide-x divide-amber-200/60">
+                    <div class="flex w-full global-input-container divide-x divide-amber-200/60">
                         <textarea data-date="${dateStr}" data-type="meet" placeholder=""
-                            class="global-input w-1/2 h-full p-0 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 font-medium resize-none vertical-text" 
+                            class="global-input w-1/2 p-0 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 font-medium resize-none vertical-text" 
                             ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>
                         <textarea data-date="${dateStr}" data-type="event" placeholder=""
-                            class="global-input w-1/2 h-full p-0 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 font-medium resize-none vertical-text" 
+                            class="global-input w-1/2 p-0 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 font-medium resize-none vertical-text" 
                             ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>
                     </div>`;
                 rowCombined.appendChild(tdCombined);
@@ -701,7 +713,6 @@
             });
         }
 
-        // 🔄 ユーザー個別の並び順を考慮した勤務マスタ配列を取得する関数
         function getOrderedDutyStyles() {
             const user = state.currentUser || "default";
             const orderList = state.userCustomOrder[user];
@@ -709,7 +720,6 @@
                 return [...state.dutyStyles];
             }
             
-            // 記憶された順にソート、無ければ末尾に追加
             const sorted = [];
             orderList.forEach(name => {
                 const found = state.dutyStyles.find(s => s.name === name);
@@ -724,7 +734,6 @@
             return sorted;
         }
 
-        // 🔄 勤務ポップアップの中身を生成・レンダリングする関数
         function renderDutySelectorGrid(name, dateStr) {
             const grid = document.getElementById("dutySelectorGrid");
             grid.innerHTML = "";
@@ -741,7 +750,6 @@
                     cellWrapper.draggable = true;
                     cellWrapper.dataset.dutyName = style.name;
                     
-                    // ドラッグ＆ドロップイベント追加
                     cellWrapper.addEventListener("dragstart", (e) => {
                         e.dataTransfer.setData("text/plain", style.name);
                         cellWrapper.classList.add("opacity-40");
@@ -754,7 +762,6 @@
                         const targetName = cellWrapper.dataset.dutyName;
                         if (sourceName === targetName) return;
                         
-                        // 現在表示中の順序ベースで入れ替え
                         const currentOrderNames = Array.from(grid.children).map(c => c.dataset.dutyName);
                         const srcIdx = currentOrderNames.indexOf(sourceName);
                         const tgtIdx = currentOrderNames.indexOf(targetName);
@@ -762,11 +769,10 @@
                             currentOrderNames.splice(srcIdx, 1);
                             currentOrderNames.splice(tgtIdx, 0, sourceName);
                             
-                            // 個人用設定に即時保存
                             const user = state.currentUser || "default";
                             state.userCustomOrder[user] = currentOrderNames;
                             saveData();
-                            renderDutySelectorGrid(name, dateStr); // 再描画
+                            renderDutySelectorGrid(name, dateStr); 
                         }
                     });
                 }
@@ -779,7 +785,6 @@
                     ${isSelected ? 'bg-indigo-600 text-white rounded' : 'text-gray-700 hover:bg-indigo-50'}`;
                 btn.textContent = style.name || "ー";
                 
-                // 通常モードの時だけクリックで勤務を確定
                 if (!state.isOrderEditMode) {
                     btn.classList.add("cursor-pointer");
                     btn.addEventListener("click", () => {
@@ -789,7 +794,6 @@
                         toggleModal("dutySelectorModal", false);
                     });
                 } else {
-                    // 並び替えモード時は十字架アイコンを出す
                     const icon = document.createElement("div");
                     icon.className = "absolute top-0.5 right-1 text-[9px] text-indigo-400";
                     icon.innerHTML = `<i class="fa-solid fa-arrows-up-down-left-right"></i>`;
@@ -803,7 +807,7 @@
 
         function openDutySelector(name, dateStr) {
             state.activeCellTarget = { name, dateStr };
-            state.isOrderEditMode = false; // 初期状態は通常選択
+            state.isOrderEditMode = false; 
             
             const title = document.getElementById("selectorModalTitle");
             const sub = document.getElementById("selectorModalSub");
@@ -816,7 +820,6 @@
             toggleModal("dutySelectorModal", true);
         }
 
-        // 🔄 並び替えモードUIの切り替え
         function updateOrderModeUI() {
             const btnText = document.getElementById("textOrderMode");
             const btnToggle = document.getElementById("btnToggleOrderMode");
@@ -1087,7 +1090,6 @@
             
             document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
 
-            // 🔄 並び替えモードトグルイベント
             document.getElementById("btnToggleOrderMode").addEventListener("click", () => {
                 state.isOrderEditMode = !state.isOrderEditMode;
                 updateOrderModeUI();
@@ -1096,7 +1098,7 @@
                 }
             });
 
-            // 📐 リアルタイム幅・高さ調整スライダー
+            // 📐 リアルタイム幅・高さ調整スライダー（バグ修正完了）
             document.getElementById("inputCellWidth").addEventListener("input", (e) => {
                 state.customWidth = parseInt(e.target.value, 10);
                 document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
