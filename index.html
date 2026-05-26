@@ -9,95 +9,1223 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        :root { --cell-width: 44px; --cell-height: 24px; --global-ratio: 3.0; }
-        .duty-cell { min-width: var(--cell-width) !important; max-width: var(--cell-width) !important; width: var(--cell-width) !important; height: var(--cell-height) !important; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; }
-        .global-cell { height: calc(var(--cell-height) * var(--global-ratio)) !important; min-height: calc(var(--cell-height) * var(--global-ratio)) !important; max-height: calc(var(--cell-height) * var(--global-ratio)) !important; padding: 0 !important; overflow: hidden !important; }
-        .sticky-col { position: sticky; left: 0; background: white; z-index: 20; min-width: 70px; }
-        .user-select-btn { width: 100%; padding: 12px; background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; font-weight: bold; color: #4b5563; }
+        /* 🎨 動的スタイル適用用のベース */
+        :root {
+            --cell-width: 44px;
+            --cell-height: 24px;
+            --global-ratio: 3.0;
+        }
+
+        /* 勤務セルの基本定義 */
+        .duty-cell { 
+            min-width: var(--cell-width) !important; 
+            max-width: var(--cell-width) !important; 
+            width: var(--cell-width) !important;
+            height: var(--cell-height) !important; 
+            text-align: center; 
+            font-size: 11px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+        }
+        
+        /* 📅 予定・会議行の縦伸びを徹底的に潰す設定 */
+        .global-cell { 
+            height: calc(var(--cell-height) * var(--global-ratio)) !important; 
+            min-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
+            max-height: calc(var(--cell-height) * var(--global-ratio)) !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        
+        .global-input-container {
+            display: flex !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-height: calc(var(--cell-height) * var(--global-ratio)) !important;
+            overflow: hidden !important;
+        }
+
+        .global-input {
+            width: 50% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            resize: none !important;
+            box-sizing: border-box !important;
+            outline: none !important;
+            border: none !important;
+            background-color: transparent !important;
+        }
+        
+        /* 📌 テーブルの左側固定設定 */
+        .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; width: 70px; }
+        .sticky-col-2 { position: sticky; left: 70px; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 36px; max-width: 36px; width: 36px; }
+        
+        /* 共通予定の縦書き設定 */
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            white-space: nowrap;
+            overflow: hidden;
+            line-height: 1.1;
+            font-size: 10px;
+            padding: 2px 0 !important;
+            text-align: center;
+        }
+
+        /* 👑 ドラッグ中スタイル */
+        .dragging {
+            opacity: 0.4;
+            background-color: #e0e7ff !important;
+        }
+        
+        /* 🔍 全表示（全体俯瞰モード）用のスタイルクラス */
+        .view-all-mode .duty-cell { min-width: 28px !important; max-width: 28px !important; width: 28px !important; height: 18px !important; font-size: 9px !important; padding: 0 !important; }
+        .view-all-mode .global-cell { height: 54px !important; min-height: 54px !important; max-height: 54px !important; }
+        .view-all-mode .vertical-text { font-size: 8px !important; padding: 1px 0 !important; }
+        .view-all-mode .sticky-col { min-width: 45px !important; max-width: 45px !important; width: 45px !important; font-size: 9px !important; }
+        .view-all-mode .sticky-col-2 { left: 45px !important; min-width: 24px !important; max-width: 24px !important; width: 24px !important; font-size: 8px !important; }
+        .view-all-mode input.duty-input { font-size: 8px !important; }
+        .view-all-mode .staff-name-container { max-width: 42px !important; font-size: 9px !important; }
+        .view-all-mode .staff-ko-container { font-size: 8px !important; margin-top: 0 !important; }
+
+        @media (max-width: 768px) {
+            .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; width: 65px !important; }
+            .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; width: 32px !important; font-size: 9px; }
+            input.duty-input { font-size: 9px; }
+            .vertical-text { font-size: 9px; }
+        }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
 
     <div id="loginScreen" class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 border">
-            <h2 class="text-xl font-bold text-center mb-6">勤務管理システム</h2>
-            <button id="openUserModalBtn" class="user-select-btn mb-4">
-                <i class="fa-solid fa-user mr-2"></i><span id="selectedUserLabel">職員を選択してください</span>
-            </button>
-            <input type="hidden" id="loginUserHidden">
-            <input type="password" id="loginPassword" placeholder="パスワード" class="w-full border rounded-lg px-3 py-3 mb-4 text-sm">
-            <button id="authBtn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg">ログイン</button>
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 sm:p-8 border border-gray-100">
+            <div class="text-center mb-6">
+                <div class="bg-indigo-100 text-indigo-600 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 text-xl shadow-sm">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight">勤務管理システム ログイン</h2>
+                <p class="text-xs text-gray-400 mt-1">名前とパスワードを入力してください</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">職員名</label>
+                    <select id="loginUserSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 bg-white font-medium"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">パスワード</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button id="authBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> <span>ログインする</span>
+                </button>
+            </div>
         </div>
     </div>
 
+
     <div id="mainSystem" class="hidden">
-        <nav class="bg-indigo-600 text-white p-3 flex justify-between items-center">
-            <span class="font-bold text-sm">勤務管理 Pro</span>
-            <button id="logoutBtn" class="bg-indigo-800 px-3 py-1 rounded text-xs">ログアウト</button>
-        </nav>
-        <div id="tableContainer" class="p-2 overflow-x-auto">
+        <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V20.2</span>
             </div>
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
+                <button id="logoutBtn" class="text-[10px] sm:text-xs bg-indigo-800 hover:bg-indigo-900 px-2 py-1 rounded border border-indigo-500/50 flex items-center space-x-1"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hidden sm:inline">ログアウト</span></button>
+            </div>
+        </nav>
+
+        <main class="p-2 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
+            
+            <div id="adminSizeConfigPanel" class="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl shadow-lg p-4 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-arrows-to-dot text-amber-400"></i>
+                        <h3 class="text-xs sm:text-sm font-bold tracking-wide text-slate-200">表示サイズ調整（リアルタイム設定）</h3>
+                    </div>
+                    <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300">PC・スマホ両対応</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300 font-medium">
+                            <span>📅 勤務セルの幅 (列幅)</span>
+                            <span id="valCellWidth" class="font-mono text-amber-400 font-bold">44px</span>
+                        </div>
+                        <input type="range" id="inputCellWidth" min="30" max="85" value="44" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300 font-medium">
+                            <span>↔️ 勤務行の高さ (1行)</span>
+                            <span id="valCellHeight" class="font-mono text-amber-400 font-bold">24px</span>
+                        </div>
+                        <input type="range" id="inputCellHeight" min="18" max="45" value="24" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300 font-medium">
+                            <span>📌 予定行の高さ (勤務行の〇倍)</span>
+                            <span id="valGlobalRatio" class="font-mono text-amber-400 font-bold">3.0倍</span>
+                        </div>
+                        <input type="range" id="inputGlobalRatio" min="1.5" max="6.0" step="0.5" value="3.0" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-3 sm:p-4 flex flex-col md:flex-wrap md:flex-row gap-3 justify-between items-stretch md:items-center">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-[10px] text-gray-500 font-bold mb-0.5">表示月</label>
+                        <select id="monthSelect" class="w-full md:w-auto border border-gray-300 rounded px-2.5 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 bg-white font-bold"></select>
+                    </div>
+
+                    <div id="adminMonthConfig" class="hidden bg-indigo-50 p-1.5 rounded border border-indigo-200 flex items-center space-x-2 shadow-inner">
+                        <input type="month" id="newMonthInput" class="border border-indigo-300 rounded px-1.5 py-1 text-xs focus:ring-2 focus:ring-indigo-500 bg-white font-medium">
+                        <button id="addMonthBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1.5 rounded font-bold transition-colors shadow-sm">
+                            <i class="fa-solid fa-calendar-plus mr-1"></i>月を追加
+                        </button>
+                    </div>
+                    
+                    <div id="adminConfig" class="hidden bg-green-50 p-1.5 rounded border border-green-200 flex items-center space-x-2 shadow-inner w-full md:w-auto">
+                        <i class="fa-solid fa-sliders text-green-600 text-xs ml-1"></i>
+                        <span class="text-[11px] text-green-700 font-bold">公休基準:</span>
+                        <input type="number" id="baseOffDays" value="9" class="w-10 border border-green-300 text-center text-xs font-bold rounded py-0.5 focus:ring-2 focus:ring-green-500">
+                        <span class="text-[11px] text-green-700">日</span>
+                        <button id="saveConfigBtn" class="bg-green-600 text-white text-[11px] px-2 py-1 rounded font-bold hover:bg-green-700 transition-colors shadow-sm flex items-center space-x-1">
+                            <i class="fa-solid fa-users"></i> <span>一括適用</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                    <button id="btnToggleViewAll" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded flex items-center justify-center space-x-1 shadow-sm transition-colors">
+                        <i class="fa-solid fa-compress"></i> <span id="viewAllBtnText">全表示（縮小）</span>
+                    </button>
+                    <button id="btnExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-file-excel"></i> <span>Excel出力</span></button>
+                    <button id="btnPdf" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-file-pdf"></i> <span>PDF出力</span></button>
+                    <button id="btnDutyMgmt" class="hidden bg-amber-600 hover:bg-amber-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-business-time"></i> <span>勤務形態管理</span></button>
+                    <button id="btnStaffMgmt" class="hidden bg-gray-600 hover:bg-gray-700 text-white text-xs px-2.5 py-2 rounded flex items-center justify-center space-x-1 shadow-sm"><i class="fa-solid fa-users-gear"></i> <span>職員管理</span></button>
+                </div>
+            </div>
+
+            <div id="tableContainer" class="bg-white rounded-xl shadow-sm overflow-x-auto border border-gray-200 block max-w-full">
+                <table class="text-left border-collapse table-fixed w-max" id="dutyTable">
+                    <thead>
+                        <tr id="headerRowDays" class="bg-gray-100 text-[11px] font-bold text-gray-600"></tr>
+                        <tr id="headerRowWeeks" class="bg-gray-50 text-[11px] font-bold text-gray-500 border-b border-gray-200"></tr>
+                        <tr id="globalScheduleRowCombined" class="bg-amber-50 text-[11px] font-bold border-b border-gray-300"></tr>
+                    </thead>
+                    <tbody id="dutyTableBody" class="divide-y divide-gray-200"></tbody>
+                    <tfoot>
+                        <tr id="totalCountRow" class="bg-indigo-50 font-bold text-[11px] text-indigo-900 border-t-2 border-indigo-200"></tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm p-3 text-[11px] text-gray-500 flex flex-col sm:flex-row gap-3 sm:gap-6">
+                <div class="flex items-center">
+                    <span class="inline-block w-3.5 h-3.5 bg-red-100 border border-red-300 rounded mr-1.5"></span>
+                    <span class="font-bold text-red-700">赤色：公休超過（休みすぎ）</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="inline-block w-3.5 h-3.5 bg-orange-100 border border-orange-300 rounded mr-1.5"></span>
+                    <span class="font-bold text-orange-600">橙色：公休不足（働きすぎ・未消化）</span>
+                </div>
+                <div id="adminDragNotice" class="hidden flex items-center text-indigo-600 font-bold">
+                    <i class="fa-solid fa-arrows-up-down mr-1.5"></i>
+                    <span>管理者機能：名前をドラッグすると上下に並び替えできます</span>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <div id="userSelectorModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] p-3">
-        <div class="bg-white rounded-xl max-w-sm w-full p-4 max-h-[80vh] flex flex-col">
-            <h3 class="font-bold mb-4">職員を選択</h3>
-            <div id="userSelectorGrid" class="grid grid-cols-2 gap-2 overflow-y-auto"></div>
+    <div id="dutySelectorModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] p-3 transition-opacity">
+        <div class="bg-white rounded-xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-start border-b pb-2.5 mb-3">
+                <div>
+                    <h3 id="selectorModalTitle" class="font-bold text-base sm:text-lg text-gray-800">勤務を選択</h3>
+                    <p id="selectorModalSub" class="text-[11px] text-gray-400 mt-0.5"></p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="btnToggleOrderMode" class="text-[10px] bg-slate-100 hover:bg-slate-200 border text-slate-700 font-bold py-1 px-2.5 rounded flex items-center space-x-1 transition-colors">
+                        <i class="fa-solid fa-sort"></i> <span id="textOrderMode">並び替え</span>
+                    </button>
+                    <button id="closeSelectorModal" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+            </div>
+            
+            <div id="orderModeHint" class="hidden text-[10px] text-indigo-600 bg-indigo-50 p-2 rounded mb-2 font-bold flex items-center">
+                <i class="fa-solid fa-circle-info mr-1.5 text-xs"></i> <span>ドラッグ＆ドロップで並び替えできます。完了したら右上の「確定」を押してください。</span>
+            </div>
+
+            <div id="dutySelectorGrid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 overflow-y-auto p-1 flex-1"></div>
+        </div>
+    </div>
+
+    <div id="dutyModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-3">
+        <div class="bg-white rounded-xl max-w-md w-full p-5 shadow-xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2.5 mb-3">
+                <h3 class="font-bold text-base text-gray-800"><i class="fa-solid fa-business-time text-amber-600 mr-2"></i>勤務形態のマスタ管理</h3>
+                <button id="closeDutyModal" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="space-y-4 overflow-y-auto pr-0.5">
+                <div class="bg-gray-50 p-3 rounded border space-y-3">
+                    <p class="text-xs font-bold text-gray-600">新規勤務形態の登録</p>
+                    <div>
+                        <label class="block text-[11px] text-gray-500 mb-1">勤務形態名</label>
+                        <input type="text" id="newDutyName" placeholder="例：早番、遅番、有給" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-gray-500 mb-1">公休数換算</label>
+                        <select id="newDutyOffValue" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 bg-white">
+                            <option value="0">0 (通常の出勤シフト)</option>
+                            <option value="0.5">0.5 (半日休み / △等)</option>
+                            <option value="1">1 (完全な公休・有給 / 〇等)</option>
+                        </select>
+                    </div>
+                    <button id="addDutyBtn" class="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 rounded font-bold transition-colors">勤務形態を追加</button>
+                </div>
+                <div class="border rounded divide-y max-h-40 overflow-y-auto" id="dutyManagementList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="staffModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-3">
+        <div class="bg-white rounded-xl max-w-lg w-full p-5 shadow-xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2.5 mb-3">
+                <h3 class="font-bold text-base text-gray-800"><i class="fa-solid fa-users-gear text-indigo-600 mr-2"></i>職員追加 ＆ パスワード設定</h3>
+                <button id="closeStaffModal" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="space-y-4 overflow-y-auto pr-0.5">
+                <div class="bg-gray-50 p-3 rounded border space-y-3">
+                    <p class="text-xs font-bold text-gray-600">新規職員の登録</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">氏名(苗字)</label>
+                            <input type="text" id="newStaffName" placeholder="例：高橋" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">パスワード</label>
+                            <input type="text" id="newStaffPass" placeholder="初期値: 1234" value="1234" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    <button id="addStaffBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 rounded font-bold transition-colors">職員を新規追加</button>
+                </div>
+                <div class="border rounded divide-y bg-white max-h-44 overflow-y-auto" id="staffManagementList"></div>
+            </div>
         </div>
     </div>
 
     <script>
-        // データ構造の復旧
+        const HOLIDAYS_2026 = [
+            "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23",
+            "2026-03-20", "2026-04-29", "2026-05-03", "2026-05-04",
+            "2026-05-05", "2026-05-06", "2026-07-20", "2026-08-11",
+            "2026-09-21", "2026-09-22", "2026-09-23", "2026-10-12",
+            "2026-11-03", "2026-11-23", "2026-12-23"
+        ];
+
         let state = {
+            currentMonth: "2026-05",
+            availableMonths: ["2026-05", "2026-06"],
             currentUser: "",
-            staffsData: [{ name: "管理者", pass: "admin", role: "admin" }],
-            duties: {},
-            globalScheduleMeet: {},
+            isAdmin: false,
+            baseOffDays: 9,
+            activeCellTarget: null, 
+            isViewAllMode: false,
+            isOrderEditMode: false, 
             customWidth: 44,
             customHeight: 24,
-            customRatio: 3.0
+            customRatio: 3.0,
+            userCustomOrder: {}, 
+            staffsData: [
+                { name: "管理者", pass: "admin", role: "admin" },
+                { name: "佐藤", pass: "1234", role: "user" }
+            ],
+            dutyStyles: [
+                { name: "", offValue: 0 }, { name: "/", offValue: 0 }, { name: "研", offValue: 0 }, { name: "=", offValue: 0 },
+                { name: "〇=", offValue: 1 }, { name: "am/△=", offValue: 0.5 }, { name: "ー", offValue: 0 }, { name: "〇", offValue: 1 },
+                { name: "早", offValue: 0 }, { name: "遅", offValue: 0 }, { name: "土残", offValue: 0 }, { name: "日勤", offValue: 0 },
+                { name: "am/△", offValue: 0.5 }, { name: "△/pm", offValue: 0.5 }, { name: "am/有", offValue: 0.5 }, { name: "有/pm", offValue: 0.5 },
+                { name: "am/欠", offValue: 0.5 }, { name: "欠/pm", offValue: 0.5 }, { name: "有", offValue: 1 }, { name: "△/有", offValue: 1 },
+                { name: "有/△", offValue: 1 }, { name: "特", offValue: 1 }, { name: "欠", offValue: 0 }, { name: "有/欠", offValue: 0.5 },
+                { name: "欠/有", offValue: 0.5 }, { name: "病", offValue: 0 }, { name: "病/欠", offValue: 0 }, { name: "忌", offValue: 1 },
+                { name: "産", offValue: 1 }, { name: "育", offValue: 1 }, { name: "看", offValue: 0.5 }, { name: "在", offValue: 0 },
+                { name: "在/△", offValue: 0.5 }, { name: "△/在", offValue: 0.5 }, { name: "在/有", offValue: 0.5 }, { name: "有/在", offValue: 0.5 },
+                { name: "措", offValue: 0 }, { name: "am/措", offValue: 0 }, { name: "措/pm", offValue: 0 }, { name: "措/△", offValue: 0.5 },
+                { name: "△/措", offValue: 0.5 }, { name: "措/有", offValue: 0.5 }, { name: "有/措", offValue: 0.5 }
+            ], 
+            globalScheduleMeet: {}, 
+            globalScheduleEvent: {}, 
+            duties: {}, 
         };
 
-        // ローカルストレージからデータを読み込む関数（重要！）
+        function setInitialCurrentMonth() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const target = `${y}-${m}`;
+            state.currentMonth = target;
+            if (!state.availableMonths.includes(target)) {
+                state.availableMonths.push(target);
+                state.availableMonths.sort();
+            }
+        }
+
         function loadData() {
             const saved = localStorage.getItem("gemini_duty_system_v13_state");
             if (saved) {
                 const parsed = JSON.parse(saved);
-                state = { ...state, ...parsed }; // 以前のデータをstateに上書き
+                state.staffsData = parsed.staffsData || state.staffsData;
+                state.duties = parsed.duties || state.duties;
+                state.globalScheduleMeet = parsed.globalScheduleMeet || parsed.globalSchedule || {};
+                state.globalScheduleEvent = parsed.globalScheduleEvent || {};
+                state.baseOffDays = parsed.baseOffDays !== undefined ? parsed.baseOffDays : 9;
+                state.availableMonths = parsed.availableMonths || state.availableMonths;
+                state.customWidth = parsed.customWidth !== undefined ? parsed.customWidth : 44;
+                state.customHeight = parsed.customHeight !== undefined ? parsed.customHeight : 24;
+                state.customRatio = parsed.customRatio !== undefined ? parsed.customRatio : 3.0;
+                state.userCustomOrder = parsed.userCustomOrder || {};
+            }
+            if (!state.staffsData.some(u => u.role === 'admin')) {
+                state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
+            }
+            applyDynamicStyles();
+        }
+
+        function saveData() {
+            localStorage.setItem("gemini_duty_system_v13_state", JSON.stringify(state));
+        }
+
+        function applyDynamicStyles() {
+            document.documentElement.style.setProperty('--cell-width', `${state.customWidth}px`);
+            document.documentElement.style.setProperty('--cell-height', `${state.customHeight}px`);
+            document.documentElement.style.setProperty('--global-ratio', state.customRatio);
+        }
+
+        function getDaysInMonth(yearMonth) {
+            const [year, month] = yearMonth.split('-').map(Number);
+            return new Date(year, month, 0).getDate();
+        }
+
+        function getDefaultDutyForDate(dateStr) {
+            const dateObj = new Date(dateStr);
+            const dayOfWeek = dateObj.getDay();
+            if (dayOfWeek === 0 || HOLIDAYS_2026.includes(dateStr)) return "〇";
+            if (dayOfWeek === 6) return "am/△";
+            return "/";
+        }
+
+        function getDayBgClass(dateStr) {
+            const dateObj = new Date(dateStr);
+            const dayOfWeek = dateObj.getDay();
+            if (dayOfWeek === 0 || HOLIDAYS_2026.includes(dateStr)) return "bg-red-50/50";
+            if (dayOfWeek === 6) return "bg-blue-50/50";
+            return "";
+        }
+
+        function populateDefaultDuties() {
+            const m = state.currentMonth;
+            if (!state.duties[m]) state.duties[m] = {};
+
+            const daysInMonth = getDaysInMonth(m);
+            state.staffsData.forEach(user => {
+                const name = user.name;
+                if (user.role === 'admin') return;
+                
+                if (!state.duties[m][name]) state.duties[m][name] = {};
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                    if (!state.duties[m][name][dateStr]) {
+                        state.duties[m][name][dateStr] = { d1: getDefaultDutyForDate(dateStr), d2: "", bg: "" };
+                    }
+                }
+            });
+            saveData();
+        }
+
+        function updateMonthSelectOptions() {
+            const select = document.getElementById("monthSelect");
+            select.innerHTML = "";
+            state.availableMonths.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m;
+                const [y, mm] = m.split('-');
+                opt.textContent = `${y}年${mm}月`;
+                if (m === state.currentMonth) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function initLoginSelect() {
+            const select = document.getElementById("loginUserSelect");
+            select.innerHTML = "";
+            state.staffsData.forEach(user => {
+                const opt = document.createElement("option");
+                opt.value = user.name;
+                opt.textContent = user.name + (user.role === 'admin' ? ' (管理者)' : '');
+                select.appendChild(opt);
+            });
+        }
+
+        function handleLogin() {
+            const name = document.getElementById("loginUserSelect").value;
+            const pass = document.getElementById("loginPassword").value;
+            const matchedUser = state.staffsData.find(u => u.name === name && u.pass === pass);
+            if(matchedUser) {
+                state.currentUser = matchedUser.name;
+                state.isAdmin = (matchedUser.role === 'admin');
+                document.getElementById("loginScreen").classList.add("hidden");
+                document.getElementById("mainSystem").classList.remove("hidden");
+                document.getElementById("loginPassword").value = "";
+                populateDefaultDuties();
+                updateMonthSelectOptions();
+                renderAll();
+            } else {
+                alert("❌ パスワードが正しくありません。");
             }
         }
 
-        function toggleModal(id, show) { document.getElementById(id).style.display = show ? "flex" : "none"; }
-
-        function openUserSelector() {
-            const grid = document.getElementById("userSelectorGrid");
-            grid.innerHTML = "";
-            state.staffsData.forEach(user => {
-                const btn = document.createElement("button");
-                btn.className = "p-3 bg-gray-50 border rounded-lg font-bold text-sm hover:bg-indigo-100";
-                btn.textContent = user.name;
-                btn.onclick = () => {
-                    document.getElementById("selectedUserLabel").textContent = user.name;
-                    document.getElementById("loginUserHidden").value = user.name;
-                    toggleModal("userSelectorModal", false);
-                };
-                grid.appendChild(btn);
-            });
-            toggleModal("userSelectorModal", true);
+        function handleLogout() {
+            state.currentUser = "";
+            state.isAdmin = false;
+            document.getElementById("mainSystem").classList.add("hidden");
+            document.getElementById("loginScreen").classList.remove("hidden");
+            initLoginSelect();
         }
 
-        document.getElementById("openUserModalBtn").addEventListener("click", openUserSelector);
-        document.getElementById("authBtn").addEventListener("click", () => {
-            const name = document.getElementById("loginUserHidden").value;
-            if (name) {
-                document.getElementById("loginScreen").classList.add("hidden");
-                document.getElementById("mainSystem").classList.remove("hidden");
-                // ここで本来のテーブル生成処理を呼び出します
-            } else { alert("職員を選んでください"); }
-        });
+        const weekDaysJa = ["日", "月", "火", "水", "木", "金", "土"];
+        
+        function getHeaderCellClass(dateStr, dayOfWeek) {
+            if (dayOfWeek === 0 || HOLIDAYS_2026.includes(dateStr)) return "text-red-500 bg-red-100/60";
+            if (dayOfWeek === 6) return "text-blue-500 bg-blue-100/60";
+            return "";
+        }
 
-        // 起動時にデータを読み込む
-        window.onload = loadData;
+        function renderAll() {
+            renderTableHeaders();
+            renderTableBody();
+            renderTotals();
+            updateAdminUIControls();
+            if(state.isAdmin) {
+                initDragAndDrop();
+            }
+        }
+
+        function updateAdminUIControls() {
+            document.getElementById("baseOffDays").value = state.baseOffDays;
+            const status = document.getElementById("loginStatus");
+            const adminConfig = document.getElementById("adminConfig");
+            const adminMonthConfig = document.getElementById("adminMonthConfig");
+            const adminDragNotice = document.getElementById("adminDragNotice");
+            
+            // スライダーの値表示を同期
+            document.getElementById("inputCellWidth").value = state.customWidth;
+            document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
+            document.getElementById("inputCellHeight").value = state.customHeight;
+            document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
+            document.getElementById("inputGlobalRatio").value = state.customRatio;
+            document.getElementById("valGlobalRatio").textContent = `${Number(state.customRatio).toFixed(1)}倍`;
+
+            if (state.isAdmin) {
+                status.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i> ${state.currentUser}`;
+                adminConfig.classList.remove("hidden");
+                adminMonthConfig.classList.remove("hidden");
+                adminDragNotice.classList.remove("hidden");
+                document.getElementById("btnDutyMgmt").classList.remove("hidden");
+                document.getElementById("btnStaffMgmt").classList.remove("hidden");
+            } else {
+                status.innerHTML = `<i class="fa-solid fa-user mr-1"></i> ${state.currentUser}`;
+                adminConfig.classList.add("hidden");
+                adminMonthConfig.classList.add("hidden");
+                adminDragNotice.classList.add("hidden");
+                document.getElementById("btnDutyMgmt").classList.add("hidden");
+                document.getElementById("btnStaffMgmt").classList.add("hidden");
+            }
+        }
+
+        function renderTableHeaders() {
+            const daysInMonth = getDaysInMonth(state.currentMonth);
+            const [year, month] = state.currentMonth.split('-').map(Number);
+
+            const rowDays = document.getElementById("headerRowDays");
+            const rowWeeks = document.getElementById("headerRowWeeks");
+            const rowCombined = document.getElementById("globalScheduleRowCombined");
+
+            rowDays.innerHTML = `<th class="sticky-col border p-1 text-center bg-gray-100 font-bold">名前</th><th class="sticky-col-2 border p-1 text-center bg-gray-100 font-bold">区分</th>`;
+            rowWeeks.innerHTML = `<th class="sticky-col border p-0.5 text-center bg-gray-50"></th><th class="sticky-col-2 border p-0.5 text-center bg-gray-50"></th>`;
+            rowCombined.innerHTML = `<td class="sticky-col border p-1 bg-amber-50 font-bold text-center global-cell align-middle text-[11px] leading-tight">予定・会議</td><td class="sticky-col-2 border p-1 bg-amber-50 text-center font-bold global-cell align-middle text-[10px]"></td>`;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(year, month - 1, d);
+                const dayOfWeek = dateObj.getDay();
+                const dateStr = `${state.currentMonth}-${String(d).padStart(2, '0')}`;
+                const cellBgColor = getHeaderCellClass(dateStr, dayOfWeek);
+
+                const thDay = document.createElement("th");
+                thDay.className = `border p-1 text-center duty-cell ${cellBgColor}`;
+                thDay.textContent = d;
+                rowDays.appendChild(thDay);
+
+                const thWeek = document.createElement("th");
+                thWeek.className = `border p-1 text-center duty-cell ${cellBgColor}`;
+                thWeek.textContent = weekDaysJa[dayOfWeek];
+                rowWeeks.appendChild(thWeek);
+
+                const tdCombined = document.createElement("td");
+                tdCombined.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
+                const valMeet = state.globalScheduleMeet[dateStr] || "";
+                const valEvent = state.globalScheduleEvent[dateStr] || "";
+                tdCombined.innerHTML = `
+                    <div class="global-input-container divide-x divide-amber-200/60">
+                        <textarea data-date="${dateStr}" data-type="meet" placeholder=""
+                            class="global-input p-0 font-medium vertical-text" 
+                            ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>
+                        <textarea data-date="${dateStr}" data-type="event" placeholder=""
+                            class="global-input p-0 font-medium vertical-text" 
+                            ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>
+                    </div>`;
+                rowCombined.appendChild(tdCombined);
+            }
+        }
+
+        function renderTableBody() {
+            const tbody = document.getElementById("dutyTableBody");
+            tbody.innerHTML = "";
+            const daysInMonth = getDaysInMonth(state.currentMonth);
+            const m = state.currentMonth;
+
+            state.staffsData.forEach(user => {
+                if (user.role === 'admin') return;
+
+                const name = user.name;
+                const offCount = calculateOffDays(name);
+                
+                let nameCellClass = "text-gray-700 bg-white";
+                let rowBgClass = "";
+                
+                if (offCount > state.baseOffDays) {
+                    nameCellClass = "text-red-700 bg-red-100";
+                    rowBgClass = "bg-red-50/40";
+                } else if (offCount < state.baseOffDays) {
+                    nameCellClass = "text-orange-700 bg-orange-100";
+                    rowBgClass = "bg-orange-50/30";
+                }
+
+                const tr1 = document.createElement("tr");
+                tr1.className = `${rowBgClass} staff-row-group`;
+                tr1.dataset.staffName = name; 
+                if(state.isAdmin) {
+                    tr1.draggable = true; 
+                }
+
+                const tdName = document.createElement("td");
+                tdName.className = `sticky-col border p-0.5 font-bold text-xs text-center align-middle ${nameCellClass} ${state.isAdmin ? 'cursor-grab active:cursor-grabbing' : ''}`;
+                tdName.rowSpan = 2;
+                tdName.innerHTML = `<div class="truncate staff-name-container max-w-[65px] mx-auto">${name}</div><div class="text-[9px] font-bold text-gray-700 mt-0.5 staff-ko-container">公:${offCount}</div>`;
+                tr1.appendChild(tdName);
+
+                const tdType1 = document.createElement("td");
+                tdType1.className = "sticky-col-2 border p-0.5 text-[10px] text-gray-500 text-center bg-gray-50 font-medium align-middle";
+                tdType1.textContent = "勤務";
+                tr1.appendChild(tdType1);
+
+                const tr2 = document.createElement("tr");
+                tr2.className = `${rowBgClass} staff-row-sub-group`;
+                tr2.dataset.staffName = name;
+                
+                const tdType2 = document.createElement("td");
+                tdType2.className = "sticky-col-2 border p-0.5 text-[10px] text-gray-500 text-center bg-gray-50 font-medium align-middle";
+                tdType2.textContent = "メモ";
+                tr2.appendChild(tdType2);
+
+                const canEdit = state.isAdmin || (state.currentUser === name);
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                    const cellData = (state.duties[m] && state.duties[m][name] && state.duties[m][name][dateStr]) 
+                                     ? state.duties[m][name][dateStr] 
+                                     : { d1: "", d2: "", bg: "" };
+                    const colBgClass = cellData.bg || getDayBgClass(dateStr);
+
+                    const tdCell1 = document.createElement("td");
+                    tdCell1.className = `border duty-cell p-0 transition-all ${colBgClass} relative font-bold text-[11px] text-gray-800 select-none ${canEdit ? 'cursor-pointer hover:bg-indigo-50/80' : ''}`;
+                    tdCell1.innerHTML = `<div class="w-full h-full flex items-center justify-center">${cellData.d1 || "ー"}</div>`;
+                    
+                    if (canEdit) {
+                        tdCell1.addEventListener("click", () => openDutySelector(name, dateStr));
+                        if(state.isAdmin) {
+                            tdCell1.addEventListener("contextmenu", (e) => showColorPicker(e, name, dateStr));
+                        }
+                    }
+                    tr1.appendChild(tdCell1);
+
+                    const tdCell2 = document.createElement("td");
+                    tdCell2.className = `border duty-cell p-0 ${colBgClass}`;
+                    if (canEdit) {
+                        tdCell2.innerHTML = `
+                            <input type="text" value="${cellData.d2}" data-name="${name}" data-date="${dateStr}" data-row="d2" 
+                                class="duty-input w-full h-full text-center bg-transparent border-none text-[10px] text-gray-600 focus:ring-1 focus:ring-indigo-400 p-0 m-0">`;
+                    } else {
+                        tdCell2.innerHTML = `<div class="w-full h-full flex items-center justify-center text-[9px] text-gray-400 truncate">${cellData.d2}</div>`;
+                    }
+                    tr2.appendChild(tdCell2);
+                }
+
+                tbody.appendChild(tr1);
+                tbody.appendChild(tr2);
+            });
+        }
+
+        function initDragAndDrop() {
+            const tbody = document.getElementById("dutyTableBody");
+            let dragTargetName = null;
+
+            tbody.addEventListener("dragstart", (e) => {
+                const row = e.target.closest('.staff-row-group');
+                if (!row) return;
+                dragTargetName = row.dataset.staffName;
+                
+                row.classList.add("dragging");
+                const subRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
+                if(subRow) subRow.classList.add("dragging");
+            });
+
+            tbody.addEventListener("dragend", (e) => {
+                const row = e.target.closest('.staff-row-group');
+                if (!row) return;
+                
+                row.classList.remove("dragging");
+                const subRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
+                if(subRow) subRow.classList.remove("dragging");
+                dragTargetName = null;
+            });
+
+            tbody.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                const targetRow = e.target.closest('.staff-row-group, .staff-row-sub-group');
+                if (!targetRow || !dragTargetName) return;
+                
+                const targetName = targetRow.dataset.staffName;
+                if (targetName === dragTargetName) return;
+
+                const idxSource = state.staffsData.findIndex(u => u.name === dragTargetName);
+                const idxTarget = state.staffsData.findIndex(u => u.name === targetName);
+                
+                if (idxSource !== -1 && idxTarget !== -1) {
+                    const [removed] = state.staffsData.splice(idxSource, 1);
+                    state.staffsData.splice(idxTarget, 0, removed);
+                    
+                    saveData();
+                    renderTableBody();
+                    const newRow = tbody.querySelector(`.staff-row-group[data-staff-name="${dragTargetName}"]`);
+                    const newSubRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
+                    if(newRow) newRow.classList.add("dragging");
+                    if(newSubRow) newSubRow.classList.add("dragging");
+                }
+            });
+        }
+
+        function getOrderedDutyStyles() {
+            const user = state.currentUser || "default";
+            const orderList = state.userCustomOrder[user];
+            if (!orderList || !Array.isArray(orderList)) {
+                return [...state.dutyStyles];
+            }
+            
+            const sorted = [];
+            orderList.forEach(name => {
+                const found = state.dutyStyles.find(s => s.name === name);
+                if (found) sorted.push(found);
+            });
+            
+            state.dutyStyles.forEach(s => {
+                if (!sorted.some(x => x.name === s.name)) {
+                    sorted.push(s);
+                }
+            });
+            return sorted;
+        }
+
+        function renderDutySelectorGrid(name, dateStr) {
+            const grid = document.getElementById("dutySelectorGrid");
+            grid.innerHTML = "";
+            const m = state.currentMonth;
+            
+            const orderedStyles = getOrderedDutyStyles();
+            
+            orderedStyles.forEach(style => {
+                const cellWrapper = document.createElement("div");
+                cellWrapper.className = `relative select-none border rounded transition-all shadow-sm group
+                    ${state.isOrderEditMode ? 'cursor-grab active:cursor-grabbing bg-indigo-50 border-indigo-300' : 'bg-gray-50'}`;
+                
+                if (state.isOrderEditMode) {
+                    cellWrapper.draggable = true;
+                    cellWrapper.dataset.dutyName = style.name;
+                    
+                    cellWrapper.addEventListener("dragstart", (e) => {
+                        e.dataTransfer.setData("text/plain", style.name);
+                        cellWrapper.classList.add("opacity-40");
+                    });
+                    cellWrapper.addEventListener("dragend", () => cellWrapper.classList.remove("opacity-40"));
+                    cellWrapper.addEventListener("dragover", (e) => e.preventDefault());
+                    cellWrapper.addEventListener("drop", (e) => {
+                        e.preventDefault();
+                        const sourceName = e.dataTransfer.getData("text/plain");
+                        const targetName = cellWrapper.dataset.dutyName;
+                        if (sourceName === targetName) return;
+                        
+                        const currentOrderNames = Array.from(grid.children).map(c => c.dataset.dutyName);
+                        const srcIdx = currentOrderNames.indexOf(sourceName);
+                        const tgtIdx = currentOrderNames.indexOf(targetName);
+                        if (srcIdx !== -1 && tgtIdx !== -1) {
+                            currentOrderNames.splice(srcIdx, 1);
+                            currentOrderNames.splice(tgtIdx, 0, sourceName);
+                            
+                            const user = state.currentUser || "default";
+                            state.userCustomOrder[user] = currentOrderNames;
+                            saveData();
+                            renderDutySelectorGrid(name, dateStr); 
+                        }
+                    });
+                }
+
+                const currentVal = state.duties[m]?.[name]?.[dateStr]?.d1;
+                const isSelected = !state.isOrderEditMode && currentVal === style.name;
+
+                const btn = document.createElement("div");
+                btn.className = `p-2 text-xs font-bold text-center truncate min-h-[36px] flex items-center justify-center w-full h-full
+                    ${isSelected ? 'bg-indigo-600 text-white rounded' : 'text-gray-700 hover:bg-indigo-50'}`;
+                btn.textContent = style.name || "ー";
+                
+                if (!state.isOrderEditMode) {
+                    btn.classList.add("cursor-pointer");
+                    btn.addEventListener("click", () => {
+                        state.duties[m][name][dateStr].d1 = style.name;
+                        saveData();
+                        renderAll();
+                        toggleModal("dutySelectorModal", false);
+                    });
+                } else {
+                    const icon = document.createElement("div");
+                    icon.className = "absolute top-0.5 right-1 text-[9px] text-indigo-400";
+                    icon.innerHTML = `<i class="fa-solid fa-arrows-up-down-left-right"></i>`;
+                    cellWrapper.appendChild(icon);
+                }
+
+                cellWrapper.appendChild(btn);
+                grid.appendChild(cellWrapper);
+            });
+        }
+
+        function openDutySelector(name, dateStr) {
+            state.activeCellTarget = { name, dateStr };
+            state.isOrderEditMode = false; 
+            
+            const title = document.getElementById("selectorModalTitle");
+            const sub = document.getElementById("selectorModalSub");
+            
+            title.textContent = `${name} さんの勤務選択`;
+            sub.textContent = `対象日: ${dateStr}`;
+            
+            updateOrderModeUI();
+            renderDutySelectorGrid(name, dateStr);
+            toggleModal("dutySelectorModal", true);
+        }
+
+        function updateOrderModeUI() {
+            const btnText = document.getElementById("textOrderMode");
+            const btnToggle = document.getElementById("btnToggleOrderMode");
+            const hint = document.getElementById("orderModeHint");
+            
+            if (state.isOrderEditMode) {
+                btnText.textContent = "確定";
+                btnToggle.className = "text-[10px] bg-green-600 hover:bg-green-700 border border-green-600 text-white font-bold py-1 px-2.5 rounded flex items-center space-x-1 transition-colors";
+                hint.classList.remove("hidden");
+            } else {
+                btnText.textContent = "並び替え";
+                btnToggle.className = "text-[10px] bg-slate-100 hover:bg-slate-200 border text-slate-700 font-bold py-1 px-2.5 rounded flex items-center space-x-1 transition-colors";
+                hint.classList.add("hidden");
+            }
+        }
+
+        function calculateOffDays(name) {
+            const m = state.currentMonth;
+            if (!state.duties[m] || !state.duties[m][name]) return 0;
+            let totalOff = 0;
+            const daysInMonth = getDaysInMonth(m);
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                if (state.duties[m][name][dateStr]) {
+                    const d1 = state.duties[m][name][dateStr].d1;
+                    const matchedStyle = state.dutyStyles.find(s => s.name === d1);
+                    if (matchedStyle) totalOff += Number(matchedStyle.offValue);
+                }
+            }
+            return totalOff;
+        }
+
+        function renderTotals() {
+            const footer = document.getElementById("totalCountRow");
+            footer.innerHTML = `<td class="sticky-col border p-1 text-center bg-indigo-50 font-bold text-xs">出勤人数</td><td class="sticky-col-2 border p-0.5 bg-indigo-50"></td>`;
+            const daysInMonth = getDaysInMonth(state.currentMonth);
+            const m = state.currentMonth;
+            
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                let leftCount = 0;
+                let rightCount = 0;
+
+                state.staffsData.forEach(user => {
+                    if (user.role === 'admin') return;
+                    const name = user.name;
+                    if (state.duties[m] && state.duties[m][name] && state.duties[m][name][dateStr]) {
+                        const d1 = state.duties[m][name][dateStr].d1;
+                        if (d1 === "/" || d1 === "am/△") leftCount++;
+                        if (d1 === "/" || d1 === "△/pm") rightCount++;
+                    }
+                });
+
+                const td = document.createElement("td");
+                td.className = "border text-center p-0.5 duty-cell bg-indigo-100/70 text-indigo-900 font-mono text-[9px] font-bold align-middle";
+                td.textContent = `${leftCount}/${rightCount}`;
+                footer.appendChild(td);
+            }
+        }
+
+        function showColorPicker(e, name, date) {
+            e.preventDefault();
+            if (!state.isAdmin) return;
+            const m = state.currentMonth;
+            const colors = [
+                { class: "", label: "クリア" },
+                { class: "bg-yellow-200", label: "黄" },
+                { class: "bg-blue-200", label: "青" },
+                { class: "bg-green-200", label: "緑" }
+            ];
+            const menu = document.createElement("div");
+            menu.className = "fixed bg-white border shadow-xl rounded-lg p-1.5 flex space-x-1 z-[200] text-xs";
+            menu.style.top = `${e.clientY}px`;
+            menu.style.left = `${e.clientX}px`;
+
+            colors.forEach(c => {
+                const btn = document.createElement("button");
+                btn.className = `px-2 py-1.5 rounded border font-bold ${c.class || 'bg-white'}`;
+                btn.textContent = c.label;
+                btn.onclick = () => {
+                    state.duties[m][name][date].bg = c.class;
+                    saveData();
+                    renderAll();
+                    document.body.removeChild(menu);
+                };
+                menu.appendChild(btn);
+            });
+            document.body.appendChild(menu);
+            const closeMenu = (ev) => {
+                if (!menu.contains(ev.target)) {
+                    document.body.removeChild(menu);
+                    document.removeEventListener('click', closeMenu);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeMenu), 10);
+        }
+
+        function toggleModal(modalId, show) {
+            const modal = document.getElementById(modalId);
+            if(show) { modal.classList.remove("hidden"); modal.classList.add("flex"); } 
+            else { modal.classList.add("hidden"); modal.classList.remove("flex"); }
+        }
+
+        function renderDutyMgmtList() {
+            const list = document.getElementById("dutyManagementList");
+            list.innerHTML = "";
+            state.dutyStyles.forEach((style, index) => {
+                if(style.name === "") return;
+                const div = document.createElement("div");
+                div.className = "flex justify-between items-center p-2 hover:bg-gray-50 text-xs";
+                div.innerHTML = `
+                    <div class="font-bold text-gray-700"><span>${style.name}</span><span class="text-[10px] text-gray-400 ml-2 font-normal">(公休数: ${style.offValue})</span></div>
+                    ${state.isAdmin ? `<button class="text-red-500 hover:text-red-700 font-bold" onclick="deleteDutyStyle(${index})">削除</button>` : ''}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function cleanSymbolForExcel(val) {
+            if (!val) return "ー";
+            return val.replace(/〇/g, "○");
+        }
+
+        function exportToExcelCustom() {
+            const daysInMonth = getDaysInMonth(state.currentMonth);
+            const [year, month] = state.currentMonth.split('-').map(Number);
+            const m = state.currentMonth;
+            let matrix = [];
+            
+            let r1 = ["名前", "区分"];
+            for(let d=1; d<=daysInMonth; d++) r1.push(d);
+            matrix.push(r1);
+            
+            let r2 = ["", ""];
+            for(let d=1; d<=daysInMonth; d++) {
+                const dateObj = new Date(year, month - 1, d);
+                r2.push(weekDaysJa[dateObj.getDay()]);
+            }
+            matrix.push(r2);
+            
+            let rCombined = ["予定・会議", ""];
+            for(let d=1; d<=daysInMonth; d++) {
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                const mVal = state.globalScheduleMeet[dateStr] || "";
+                const eVal = state.globalScheduleEvent[dateStr] || "";
+                rCombined.push(mVal || eVal ? `${mVal} | ${eVal}`.replace(/^ \| | \| $/g, "") : "");
+            }
+            matrix.push(rCombined);
+            
+            state.staffsData.forEach(user => {
+                if(user.role === 'admin') return;
+                const name = user.name;
+                const offCount = calculateOffDays(name);
+                let rowDuty = [`${name} (公休:${offCount})`, "勤務"];
+                let rowMemo = ["", "メモ"];
+                
+                for(let d=1; d<=daysInMonth; d++) {
+                    const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                    const cell = state.duties[m]?.[name]?.[dateStr] || {d1:"", d2:""};
+                    rowDuty.push(cleanSymbolForExcel(cell.d1));
+                    rowMemo.push(cell.d2 || "");
+                }
+                matrix.push(rowDuty);
+                matrix.push(rowMemo);
+            });
+            
+            let rTotal = ["出勤人数", ""];
+            for(let d=1; d<=daysInMonth; d++) {
+                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
+                let leftCount = 0, rightCount = 0;
+                state.staffsData.forEach(user => {
+                    if (user.role === 'admin') return;
+                    const d1 = state.duties[m]?.[user.name]?.[dateStr]?.d1;
+                    if (d1 === "/" || d1 === "am/△") leftCount++;
+                    if (d1 === "/" || d1 === "△/pm") rightCount++;
+                });
+                rTotal.push(`${leftCount}/${rightCount}`);
+            }
+            matrix.push(rTotal);
+            
+            const ws = XLSX.utils.aoa_to_sheet(matrix);
+            ws['!rows'] = [];
+            ws['!rows'][2] = { hpt: (state.customHeight * state.customRatio) * 0.75 }; 
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "勤務表");
+            XLSX.writeFile(wb, `勤務表_${state.currentMonth}.xlsx`);
+        }
+
+        function renderStaffMgmtList() {
+            const list = document.getElementById("staffManagementList");
+            list.innerHTML = "";
+            state.staffsData.forEach((user, index) => {
+                const div = document.createElement("div");
+                div.className = "flex flex-wrap items-center justify-between p-2 gap-2 text-xs";
+                const deleteBtnHtml = user.role === 'admin' 
+                    ? `<span class="text-[11px] text-gray-400 font-bold px-1">変更不可</span>` 
+                    : `<button class="text-red-500 hover:text-red-700 font-bold" onclick="deleteStaff(${index})">削除</button>`;
+
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-gray-700 w-16 truncate">${user.name}</span>
+                        <span class="text-gray-400 text-[11px]">パス:</span>
+                        <input type="text" value="${user.pass}" class="border border-gray-300 rounded text-xs px-1.5 py-0.5 w-20 font-mono" onchange="updateStaffPassword(${index}, this.value)">
+                    </div>
+                    ${deleteBtnHtml}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        window.updateStaffPassword = function(index, newPassword) {
+            if(!state.isAdmin) return;
+            if(!newPassword.trim()) return;
+            state.staffsData[index].pass = newPassword.trim();
+            saveData();
+            renderStaffMgmtList();
+        };
+
+        window.deleteStaff = function(index) {
+            if(!state.isAdmin) return;
+            if (confirm(`本当に ${state.staffsData[index].name} さんを削除しますか？`)) {
+                state.staffsData.splice(index, 1);
+                saveData();
+                renderStaffMgmtList();
+                renderAll();
+            }
+        };
+
+        window.deleteDutyStyle = function(index) {
+            if(!state.isAdmin) return;
+            if (confirm(`勤務形態「${state.dutyStyles[index].name}」を削除しますか？`)) {
+                state.dutyStyles.splice(index, 1);
+                saveData();
+                renderDutyMgmtList();
+                renderAll();
+            }
+        };
+
+        function toggleViewAllMode() {
+            state.isViewAllMode = !state.isViewAllMode;
+            const container = document.getElementById("tableContainer");
+            const btnText = document.getElementById("viewAllBtnText");
+            const btnIcon = document.querySelector("#btnToggleViewAll i");
+            
+            if (state.isViewAllMode) {
+                container.classList.add("view-all-mode");
+                btnText.textContent = "通常表示に戻す";
+                btnIcon.className = "fa-solid fa-expand";
+                document.getElementById("btnToggleViewAll").className = "bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-3 py-2 rounded flex items-center justify-center space-x-1 shadow-sm transition-colors";
+            } else {
+                container.classList.remove("view-all-mode");
+                btnText.textContent = "全表示（縮小）";
+                btnIcon.className = "fa-solid fa-compress";
+                document.getElementById("btnToggleViewAll").className = "bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-2 rounded flex items-center justify-center space-x-1 shadow-sm transition-colors";
+            }
+            renderAll(); 
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            setInitialCurrentMonth(); 
+            loadData();
+            initLoginSelect();
+            
+            document.getElementById("authBtn").addEventListener("click", handleLogin);
+            document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+            document.getElementById("closeSelectorModal").addEventListener("click", () => toggleModal("dutySelectorModal", false));
+            
+            document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
+
+            document.getElementById("btnToggleOrderMode").addEventListener("click", () => {
+                state.isOrderEditMode = !state.isOrderEditMode;
+                updateOrderModeUI();
+                if (state.activeCellTarget) {
+                    renderDutySelectorGrid(state.activeCellTarget.name, state.activeCellTarget.dateStr);
+                }
+            });
+
+            // 📐 リアルタイム幅・高さ調整スライダー（完全にCSS優先される形に修正）
+            document.getElementById("inputCellWidth").addEventListener("input", (e) => {
+                state.customWidth = parseInt(e.target.value, 10);
+                document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
+                applyDynamicStyles();
+                saveData();
+            });
+
+            document.getElementById("inputCellHeight").addEventListener("input", (e) => {
+                state.customHeight = parseInt(e.target.value, 10);
+                document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
+                applyDynamicStyles();
+                saveData();
+            });
+
+            document.getElementById("inputGlobalRatio").addEventListener("input", (e) => {
+                state.customRatio = parseFloat(e.target.value);
+                document.getElementById("valGlobalRatio").textContent = `${state.customRatio.toFixed(1)}倍`;
+                applyDynamicStyles();
+                saveData();
+            });
+
+            document.getElementById("monthSelect").addEventListener("change", (e) => { 
+                state.currentMonth = e.target.value; 
+                populateDefaultDuties();
+                renderAll(); 
+            });
+
+            document.getElementById("addMonthBtn").addEventListener("click", () => {
+                if(!state.isAdmin) return;
+                const newMonthVal = document.getElementById("newMonthInput").value; 
+                if(!newMonthVal) { alert("追加したい月を選択してください。"); return; }
+                if(state.availableMonths.includes(newMonthVal)) { alert("⚠️ その月はすでに存在しています。"); return; }
+                
+                state.availableMonths.push(newMonthVal);
+                state.availableMonths.sort(); 
+                state.currentMonth = newMonthVal; 
+                
+                populateDefaultDuties();
+                updateMonthSelectOptions();
+                renderAll();
+                alert(`📅 ${newMonthVal.split('-')[0]}年${newMonthVal.split('-')[1]}月 を追加しました！`);
+            });
+
+            document.getElementById("saveConfigBtn").addEventListener("click", () => {
+                if(!state.isAdmin) return;
+                const val = parseInt(document.getElementById("baseOffDays").value, 10);
+                state.baseOffDays = isNaN(val) ? 9 : val; 
+                saveData(); renderAll(); 
+                alert(`🎯 公休基準値を「 ${state.baseOffDays} 日 」に一括適用しました。`);
+            });
+
+            document.getElementById("dutyTable").addEventListener("change", (e) => {
+                const m = state.currentMonth;
+                if (e.target.classList.contains("duty-input")) {
+                    const { name, date, row } = e.target.dataset;
+                    state.duties[m][name][date][row] = e.target.value;
+                    saveData(); renderAll();
+                }
+                if (e.target.tagName === "TEXTAREA" && e.target.classList.contains("global-input")) {
+                    const { date, type } = e.target.dataset;
+                    if (type === "meet") {
+                        state.globalScheduleMeet[date] = e.target.value;
+                    } else if (type === "event") {
+                        state.globalScheduleEvent[date] = e.target.value;
+                    }
+                    saveData(); renderAll();
+                }
+            });
+
+            document.getElementById("btnDutyMgmt").addEventListener("click", () => { if(!state.isAdmin) return; renderDutyMgmtList(); toggleModal("dutyModal", true); });
+            document.getElementById("closeDutyModal").addEventListener("click", () => toggleModal("dutyModal", false));
+            document.getElementById("btnStaffMgmt").addEventListener("click", () => { if(!state.isAdmin) return; renderStaffMgmtList(); toggleModal("staffModal", true); });
+            document.getElementById("closeStaffModal").addEventListener("click", () => toggleModal("staffModal", false));
+            
+            document.getElementById("addDutyBtn").addEventListener("click", () => {
+                if(!state.isAdmin) return;
+                const nameInput = document.getElementById("newDutyName");
+                const valInput = document.getElementById("newDutyOffValue");
+                const styleName = nameInput.value.trim();
+                if(styleName) {
+                    if(state.dutyStyles.some(s => s.name === styleName)) { alert("既に存在します。"); return; }
+                    state.dutyStyles.push({ name: styleName, offValue: parseFloat(valInput.value) });
+                    nameInput.value = "";
+                    saveData(); renderDutyMgmtList(); renderAll();
+                }
+            });
+
+            document.getElementById("addStaffBtn").addEventListener("click", () => {
+                if(!state.isAdmin) return;
+                const nameInput = document.getElementById("newStaffName");
+                const passInput = document.getElementById("newStaffPass");
+                const nameVal = nameInput.value.trim();
+                const passVal = passInput.value.trim();
+                if(nameVal && passVal) {
+                    if(state.staffsData.some(u => u.name === nameVal)) { alert("既に登録されています。"); return; }
+                    state.staffsData.push({ name: nameVal, pass: passVal, role: "user" });
+                    nameInput.value = ""; passInput.value = "1234";
+                    saveData(); populateDefaultDuties(); renderStaffMgmtList(); renderAll();
+                }
+            });
+
+            document.getElementById("btnExcel").addEventListener("click", exportToExcelCustom);
+
+            document.getElementById("btnPdf").addEventListener("click", () => {
+                const element = document.getElementById("tableContainer");
+                const opt = {
+                    margin: 5,
+                    filename: `勤務表_${state.currentMonth}.pdf`,
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
+                };
+                html2pdf().set(opt).from(element).save();
+            });
+        });
     </script>
 </body>
 </html>
