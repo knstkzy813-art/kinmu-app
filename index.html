@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V17</title>
+    <title>リアルタイム勤務表システム Pro V18</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -11,7 +11,8 @@
     <style>
         /* 💻 通常時のサイズ設定 */
         .duty-cell { min-width: 44px; max-width: 44px; height: 24px; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; }
-        .global-cell { height: 120px; }
+        /* 📅 予定・会議の通常時の行幅（高すぎないスッキリサイズ） */
+        .global-cell { height: 70px; }
         
         /* 📌 テーブルの左側固定設定 */
         .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; }
@@ -32,7 +33,8 @@
         
         /* 🔍 全表示（全体俯瞰モード）用のスタイルクラス */
         .view-all-mode .duty-cell { min-width: 28px !important; max-width: 28px !important; height: 18px !important; font-size: 9px !important; padding: 0 !important; }
-        .view-all-mode .global-cell { height: 90px !important; }
+        /* 全表示のときは予定・会議行もさらにキュッと低くします */
+        .view-all-mode .global-cell { height: 50px !important; }
         .view-all-mode .sticky-col { min-width: 45px !important; max-width: 45px !important; font-size: 9px !important; }
         .view-all-mode .sticky-col-2 { left: 45px !important; min-width: 24px !important; max-width: 24px !important; font-size: 8px !important; }
         .view-all-mode input.duty-input { font-size: 8px !important; }
@@ -43,7 +45,7 @@
         /* 📱 スマホ（画面幅768px以下）での通常表示最適化 */
         @media (max-width: 768px) {
             .duty-cell { min-width: 42px; max-width: 42px; height: 23px; font-size: 10px; }
-            .global-cell { height: 120px; }
+            .global-cell { height: 70px; }
             .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; }
             .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; font-size: 9px; }
             input.duty-input { font-size: 9px; }
@@ -84,7 +86,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V17</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V18</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -176,7 +178,7 @@
     <div id="dutyModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-3">
         <div class="bg-white rounded-xl max-w-md w-full p-5 shadow-xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-2.5 mb-3">
-                <h3 class="font-bold text-base text-gray-800"><i class="fa-solid fa-business-time text-amber-600 mr-2"></i>勤務形態のマスタ管理</h3>
+                h3 class="font-bold text-base text-gray-800"><i class="fa-solid fa-business-time text-amber-600 mr-2"></i>勤務形態のマスタ管理</h3>
                 <button id="closeDutyModal" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <div class="space-y-4 overflow-y-auto pr-0.5">
@@ -459,7 +461,6 @@
                 thWeek.textContent = weekDaysJa[dayOfWeek];
                 rowWeeks.appendChild(thWeek);
 
-                // 📌 placeholder文字を完全に空にしました（灰色文字を削除）
                 const tdCombined = document.createElement("td");
                 tdCombined.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
                 const valMeet = state.globalScheduleMeet[dateStr] || "";
@@ -755,7 +756,6 @@
             return val.replace(/〇/g, "○");
         }
 
-        // 📊 Excel出力用ロジック
         function exportToExcelCustom() {
             const daysInMonth = getDaysInMonth(state.currentMonth);
             const [year, month] = state.currentMonth.split('-').map(Number);
@@ -778,7 +778,7 @@
                 const dateStr = `${m}-${String(d).padStart(2, '0')}`;
                 const mVal = state.globalScheduleMeet[dateStr] || "";
                 const eVal = state.globalScheduleEvent[dateStr] || "";
-                rCombined.push(mVal || eVal ? `${mVal} | ${eVal}`.replace(/^ \| | \| $/g, "") : "");
+                rTotal.push(mVal || eVal ? `${mVal} | ${eVal}`.replace(/^ \| | \| $/g, "") : "");
             }
             matrix.push(rCombined);
             
@@ -815,7 +815,7 @@
             
             const ws = XLSX.utils.aoa_to_sheet(matrix);
             ws['!rows'] = [];
-            ws['!rows'][2] = { hpt: 60 }; 
+            ws['!rows'][2] = { hpt: 40 }; 
             
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "勤務表");
@@ -872,7 +872,6 @@
             }
         };
 
-        // 🔍 新機能：全表示（縮小）モードの切り替え処理
         function toggleViewAllMode() {
             state.isViewAllMode = !state.isViewAllMode;
             const container = document.getElementById("tableContainer");
@@ -902,7 +901,6 @@
             document.getElementById("logoutBtn").addEventListener("click", handleLogout);
             document.getElementById("closeSelectorModal").addEventListener("click", () => toggleModal("dutySelectorModal", false));
             
-            // 🔍 全表示ボタンのクリックイベント
             document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
 
             document.getElementById("monthSelect").addEventListener("change", (e) => { 
@@ -989,7 +987,6 @@
                 }
             });
 
-            // ✨ Excel出力のクリックイベント
             document.getElementById("btnExcel").addEventListener("click", exportToExcelCustom);
 
             document.getElementById("btnPdf").addEventListener("click", () => {
