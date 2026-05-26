@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V14</title>
+    <title>リアルタイム勤務表システム Pro V15</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -74,7 +74,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V14</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V15</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -122,8 +122,7 @@
                     <thead>
                         <tr id="headerRowDays" class="bg-gray-100 text-[11px] font-bold text-gray-600"></tr>
                         <tr id="headerRowWeeks" class="bg-gray-50 text-[11px] font-bold text-gray-500 border-b border-gray-200"></tr>
-                        <tr id="globalScheduleRowMeet" class="bg-amber-50/70 text-[11px] font-bold border-b border-dashed border-gray-300"></tr>
-                        <tr id="globalScheduleRowEvent" class="bg-amber-50 text-[11px] font-bold border-b border-gray-300"></tr>
+                        <tr id="globalScheduleRowCombined" class="bg-amber-50 text-[11px] font-bold border-b border-gray-300"></tr>
                     </thead>
                     <tbody id="dutyTableBody" class="divide-y divide-gray-200"></tbody>
                     <tfoot>
@@ -425,14 +424,13 @@
 
             const rowDays = document.getElementById("headerRowDays");
             const rowWeeks = document.getElementById("headerRowWeeks");
-            const rowMeet = document.getElementById("globalScheduleRowMeet");
-            const rowEvent = document.getElementById("globalScheduleRowEvent");
+            const rowCombined = document.getElementById("globalScheduleRowCombined");
 
             rowDays.innerHTML = `<th class="sticky-col border p-1 text-center bg-gray-100 font-bold">名前</th><th class="sticky-col-2 border p-1 text-center bg-gray-100 font-bold">区分</th>`;
             rowWeeks.innerHTML = `<th class="sticky-col border p-0.5 text-center bg-gray-50"></th><th class="sticky-col-2 border p-0.5 text-center bg-gray-50"></th>`;
             
-            rowMeet.innerHTML = `<td class="sticky-col border p-1 bg-amber-50/70 font-bold text-center global-cell align-middle text-[11px] leading-tight">会議<br>委員会</td><td class="sticky-col-2 border p-1 bg-amber-50/70 text-center font-bold global-cell align-middle text-[10px]">左列</td>`;
-            rowEvent.innerHTML = `<td class="sticky-col border p-1 bg-amber-50 font-bold text-center global-cell align-middle text-[11px] leading-tight">行事<br>予定</td><td class="sticky-col-2 border p-1 bg-amber-50 text-center font-bold global-cell align-middle text-[10px]">右列</td>`;
+            // ★「会議委員会」と「行事予定」を1行にまとめ、区分2列目の文字（左列・右列）を空欄に
+            rowCombined.innerHTML = `<td class="sticky-col border p-1 bg-amber-50 font-bold text-center global-cell align-middle text-[11px] leading-tight">予定・会議</td><td class="sticky-col-2 border p-1 bg-amber-50 text-center font-bold global-cell align-middle text-[10px]"></td>`;
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month - 1, d);
@@ -450,23 +448,21 @@
                 thWeek.textContent = weekDaysJa[dayOfWeek];
                 rowWeeks.appendChild(thWeek);
 
-                const tdMeet = document.createElement("td");
-                tdMeet.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
+                // ★1つのマスの中に、会議（左）と行事（右）の入力欄を綺麗に並べて1行で表現
+                const tdCombined = document.createElement("td");
+                tdCombined.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
                 const valMeet = state.globalScheduleMeet[dateStr] || "";
-                tdMeet.innerHTML = `
-                    <textarea data-date="${dateStr}" data-type="meet"
-                        class="global-input w-full h-full p-1 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
-                        ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>`;
-                rowMeet.appendChild(tdMeet);
-
-                const tdEvent = document.createElement("td");
-                tdEvent.className = `border duty-cell global-cell p-0 ${getDayBgClass(dateStr)} relative`;
                 const valEvent = state.globalScheduleEvent[dateStr] || "";
-                tdEvent.innerHTML = `
-                    <textarea data-date="${dateStr}" data-type="event"
-                        class="global-input w-full h-full p-1 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
-                        ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>`;
-                rowEvent.appendChild(tdEvent);
+                tdCombined.innerHTML = `
+                    <div class="flex w-full h-full divide-x divide-amber-200/60">
+                        <textarea data-date="${dateStr}" data-type="meet" placeholder="会議"
+                            class="global-input w-1/2 h-full p-0.5 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
+                            ${!state.isAdmin ? 'disabled' : ''}>${valMeet}</textarea>
+                        <textarea data-date="${dateStr}" data-type="event" placeholder="行事"
+                            class="global-input w-1/2 h-full p-0.5 text-center bg-transparent border-none focus:ring-1 focus:ring-amber-400 text-[10px] resize-none vertical-text" 
+                            ${!state.isAdmin ? 'disabled' : ''}>${valEvent}</textarea>
+                    </div>`;
+                rowCombined.appendChild(tdCombined);
             }
         }
 
@@ -493,16 +489,14 @@
                     rowBgClass = "bg-orange-50/30";
                 }
 
-                // ★2行セット（勤務行とメモ行）をまとめる仮想コンテナとしてtbody直下に構成
                 const tr1 = document.createElement("tr");
                 tr1.className = `${rowBgClass} staff-row-group`;
-                tr1.dataset.staffName = name; // 並び替え用に名前をセット
+                tr1.dataset.staffName = name; 
                 if(state.isAdmin) {
-                    tr1.draggable = true; // 管理者のみドラッグ可能に
+                    tr1.draggable = true; 
                 }
 
                 const tdName = document.createElement("td");
-                // ★公休数の文字色を濃く（text-gray-700）、行幅をさらに狭く調整
                 tdName.className = `sticky-col border p-0.5 font-bold text-xs text-center align-middle ${nameCellClass} ${state.isAdmin ? 'cursor-grab active:cursor-grabbing' : ''}`;
                 tdName.rowSpan = 2;
                 tdName.innerHTML = `<div class="truncate max-w-[65px]">${name}</div><div class="text-[9px] font-bold text-gray-700 mt-0.5">公:${offCount}</div>`;
@@ -560,7 +554,6 @@
             });
         }
 
-        // ★管理者機能：ドラッグ＆ドロップ並び替えの制御処理
         function initDragAndDrop() {
             const tbody = document.getElementById("dutyTableBody");
             let dragTargetName = null;
@@ -570,7 +563,6 @@
                 if (!row) return;
                 dragTargetName = row.dataset.staffName;
                 
-                // 相対するメモ行も合わせてハイライト
                 row.classList.add("dragging");
                 const subRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
                 if(subRow) subRow.classList.add("dragging");
@@ -594,7 +586,6 @@
                 const targetName = targetRow.dataset.staffName;
                 if (targetName === dragTargetName) return;
 
-                // 配列データの入れ替え
                 const idxSource = state.staffsData.findIndex(u => u.name === dragTargetName);
                 const idxTarget = state.staffsData.findIndex(u => u.name === targetName);
                 
@@ -603,9 +594,7 @@
                     state.staffsData.splice(idxTarget, 0, removed);
                     
                     saveData();
-                    // 表示を崩さずリアルタイムに並び替えるため再描画
                     renderTableBody();
-                    // ドラッグ状態を維持するための再設定
                     const newRow = tbody.querySelector(`.staff-row-group[data-staff-name="${dragTargetName}"]`);
                     const newSubRow = tbody.querySelector(`.staff-row-sub-group[data-staff-name="${dragTargetName}"]`);
                     if(newRow) newRow.classList.add("dragging");
@@ -772,19 +761,14 @@
             }
             matrix.push(r2);
             
-            let rMeet = ["会議委員会", "左列"];
+            let rCombined = ["予定・会議", ""];
             for(let d=1; d<=daysInMonth; d++) {
                 const dateStr = `${m}-${String(d).padStart(2, '0')}`;
-                rMeet.push(state.globalScheduleMeet[dateStr] || "");
+                const mVal = state.globalScheduleMeet[dateStr] || "";
+                const eVal = state.globalScheduleEvent[dateStr] || "";
+                rCombined.push(mVal || eVal ? `${mVal} | ${eVal}`.replace(/^ \| | \| $/g, "") : "");
             }
-            matrix.push(rMeet);
-
-            let rEvent = ["行事予定", "右列"];
-            for(let d=1; d<=daysInMonth; d++) {
-                const dateStr = `${m}-${String(d).padStart(2, '0')}`;
-                rEvent.push(state.globalScheduleEvent[dateStr] || "");
-            }
-            matrix.push(rEvent);
+            matrix.push(rCombined);
             
             state.staffsData.forEach(user => {
                 if(user.role === 'admin') return;
@@ -820,7 +804,6 @@
             const ws = XLSX.utils.aoa_to_sheet(matrix);
             ws['!rows'] = [];
             ws['!rows'][2] = { hpt: 60 }; 
-            ws['!rows'][3] = { hpt: 60 }; 
             
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "勤務表");
