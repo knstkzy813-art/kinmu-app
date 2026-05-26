@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V19</title>
+    <title>リアルタイム勤務表システム Pro V20</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* 🎨 動的スタイル適用用のベース（CSS変数化してJavaScriptからリアルタイム制御） */
+        /* 🎨 動的スタイル適用用のベース */
         :root {
             --cell-width: 44px;
             --cell-height: 24px;
@@ -26,7 +26,7 @@
             overflow: hidden; 
         }
         
-        /* 📅 予定・会議行の高さ（勤務行高さ × 倍率 で計算） */
+        /* 📅 予定・会議行の高さ */
         .global-cell { 
             height: calc(var(--cell-height) * var(--global-ratio)) !important; 
             min-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
@@ -48,7 +48,7 @@
             padding: 2px 0 !important;
         }
 
-        /* 👑 管理者用のドラッグ中スタイル */
+        /* 👑 ドラッグ中スタイル */
         .dragging {
             opacity: 0.4;
             background-color: #e0e7ff !important;
@@ -64,7 +64,6 @@
         .view-all-mode .staff-name-container { max-width: 42px !important; font-size: 9px !important; }
         .view-all-mode .staff-ko-container { font-size: 8px !important; margin-top: 0 !important; }
 
-        /* 📱 スマホでの通常表示最適化 */
         @media (max-width: 768px) {
             .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; }
             .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; font-size: 9px; }
@@ -106,7 +105,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V19</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V20</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -115,6 +114,7 @@
         </nav>
 
         <main class="p-2 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
+            
             <div id="adminSizeConfigPanel" class="hidden bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl shadow-lg p-4 space-y-3">
                 <div class="flex items-center space-x-2 border-b border-slate-700 pb-2">
                     <i class="fa-solid fa-arrows-to-dot text-amber-400"></i>
@@ -126,14 +126,14 @@
                             <span>📅 勤務セルの幅 (列幅)</span>
                             <span id="valCellWidth" class="font-mono text-amber-400 font-bold">44px</span>
                         </div>
-                        <input type="range" id="inputCellWidth" min="30" max="80" value="44" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                        <input type="range" id="inputCellWidth" min="30" max="85" value="44" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
                     </div>
                     <div class="flex flex-col space-y-1">
                         <div class="flex justify-between text-[11px] text-slate-300 font-medium">
                             <span>↔️ 勤務行の高さ (1行)</span>
                             <span id="valCellHeight" class="font-mono text-amber-400 font-bold">24px</span>
                         </div>
-                        <input type="range" id="inputCellHeight" min="18" max="40" value="24" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                        <input type="range" id="inputCellHeight" min="18" max="45" value="24" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
                     </div>
                     <div class="flex flex-col space-y-1">
                         <div class="flex justify-between text-[11px] text-slate-300 font-medium">
@@ -214,13 +214,23 @@
 
     <div id="dutySelectorModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] p-3 transition-opacity">
         <div class="bg-white rounded-xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[85vh]">
-            <div class="flex justify-between items-center border-b pb-2.5 mb-3">
+            <div class="flex justify-between items-start border-b pb-2.5 mb-3">
                 <div>
                     <h3 id="selectorModalTitle" class="font-bold text-base sm:text-lg text-gray-800">勤務を選択</h3>
                     <p id="selectorModalSub" class="text-[11px] text-gray-400 mt-0.5"></p>
                 </div>
-                <button id="closeSelectorModal" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <div class="flex items-center space-x-2">
+                    <button id="btnToggleOrderMode" class="text-[10px] bg-slate-100 hover:bg-slate-200 border text-slate-700 font-bold py-1 px-2.5 rounded flex items-center space-x-1 transition-colors">
+                        <i class="fa-solid fa-sort"></i> <span id="textOrderMode">並び替え</span>
+                    </button>
+                    <button id="closeSelectorModal" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
             </div>
+            
+            <div id="orderModeHint" class="hidden text-[10px] text-indigo-600 bg-indigo-50 p-2 rounded mb-2 font-bold flex items-center">
+                <i class="fa-solid fa-circle-info mr-1.5 text-xs"></i> <span>ドラッグ＆ドロップで並び替えできます。完了したら右上の「確定」を押してください。</span>
+            </div>
+
             <div id="dutySelectorGrid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 overflow-y-auto p-1 flex-1"></div>
         </div>
     </div>
@@ -296,10 +306,11 @@
             baseOffDays: 9,
             activeCellTarget: null, 
             isViewAllMode: false,
-            // 📐 セルサイズ設定の初期値
+            isOrderEditMode: false, // 🔄 勤務選択ポップアップの並び替えモードフラグ
             customWidth: 44,
             customHeight: 24,
             customRatio: 3.0,
+            userCustomOrder: {}, // 🔄 各自のポップアップ並び順を保持（オブジェクト形式）
             staffsData: [
                 { name: "管理者", pass: "admin", role: "admin" },
                 { name: "佐藤", pass: "1234", role: "user" }
@@ -344,10 +355,10 @@
                 state.globalScheduleEvent = parsed.globalScheduleEvent || {};
                 state.baseOffDays = parsed.baseOffDays !== undefined ? parsed.baseOffDays : 9;
                 state.availableMonths = parsed.availableMonths || state.availableMonths;
-                // 📐 サイズ設定をロード
                 state.customWidth = parsed.customWidth !== undefined ? parsed.customWidth : 44;
                 state.customHeight = parsed.customHeight !== undefined ? parsed.customHeight : 24;
                 state.customRatio = parsed.customRatio !== undefined ? parsed.customRatio : 3.0;
+                state.userCustomOrder = parsed.userCustomOrder || {}; // ロード
             }
             if (!state.staffsData.some(u => u.role === 'admin')) {
                 state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
@@ -359,7 +370,6 @@
             localStorage.setItem("gemini_duty_system_v13_state", JSON.stringify(state));
         }
 
-        // 🎨 CSS変数をドキュメントルートに適用する関数
         function applyDynamicStyles() {
             document.documentElement.style.setProperty('--cell-width', `${state.customWidth}px`);
             document.documentElement.style.setProperty('--cell-height', `${state.customHeight}px`);
@@ -488,11 +498,10 @@
                 adminConfig.classList.remove("hidden");
                 adminMonthConfig.classList.remove("hidden");
                 adminDragNotice.classList.remove("hidden");
-                adminSizeConfigPanel.classList.remove("hidden"); // サイズ調整パネルを表示
+                adminSizeConfigPanel.classList.remove("hidden"); 
                 document.getElementById("btnDutyMgmt").classList.remove("hidden");
                 document.getElementById("btnStaffMgmt").classList.remove("hidden");
 
-                // スライダーフォームに現在の内部数値を同期
                 document.getElementById("inputCellWidth").value = state.customWidth;
                 document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
                 document.getElementById("inputCellHeight").value = state.customHeight;
@@ -692,38 +701,136 @@
             });
         }
 
+        // 🔄 ユーザー個別の並び順を考慮した勤務マスタ配列を取得する関数
+        function getOrderedDutyStyles() {
+            const user = state.currentUser || "default";
+            const orderList = state.userCustomOrder[user];
+            if (!orderList || !Array.isArray(orderList)) {
+                return [...state.dutyStyles];
+            }
+            
+            // 記憶された順にソート、無ければ末尾に追加
+            const sorted = [];
+            orderList.forEach(name => {
+                const found = state.dutyStyles.find(s => s.name === name);
+                if (found) sorted.push(found);
+            });
+            
+            state.dutyStyles.forEach(s => {
+                if (!sorted.some(x => x.name === s.name)) {
+                    sorted.push(s);
+                }
+            });
+            return sorted;
+        }
+
+        // 🔄 勤務ポップアップの中身を生成・レンダリングする関数
+        function renderDutySelectorGrid(name, dateStr) {
+            const grid = document.getElementById("dutySelectorGrid");
+            grid.innerHTML = "";
+            const m = state.currentMonth;
+            
+            const orderedStyles = getOrderedDutyStyles();
+            
+            orderedStyles.forEach(style => {
+                const cellWrapper = document.createElement("div");
+                cellWrapper.className = `relative select-none border rounded transition-all shadow-sm group
+                    ${state.isOrderEditMode ? 'cursor-grab active:cursor-grabbing bg-indigo-50 border-indigo-300' : 'bg-gray-50'}`;
+                
+                if (state.isOrderEditMode) {
+                    cellWrapper.draggable = true;
+                    cellWrapper.dataset.dutyName = style.name;
+                    
+                    // ドラッグ＆ドロップイベント追加
+                    cellWrapper.addEventListener("dragstart", (e) => {
+                        e.dataTransfer.setData("text/plain", style.name);
+                        cellWrapper.classList.add("opacity-40");
+                    });
+                    cellWrapper.addEventListener("dragend", () => cellWrapper.classList.remove("opacity-40"));
+                    cellWrapper.addEventListener("dragover", (e) => e.preventDefault());
+                    cellWrapper.addEventListener("drop", (e) => {
+                        e.preventDefault();
+                        const sourceName = e.dataTransfer.getData("text/plain");
+                        const targetName = cellWrapper.dataset.dutyName;
+                        if (sourceName === targetName) return;
+                        
+                        // 現在表示中の順序ベースで入れ替え
+                        const currentOrderNames = Array.from(grid.children).map(c => c.dataset.dutyName);
+                        const srcIdx = currentOrderNames.indexOf(sourceName);
+                        const tgtIdx = currentOrderNames.indexOf(targetName);
+                        if (srcIdx !== -1 && tgtIdx !== -1) {
+                            currentOrderNames.splice(srcIdx, 1);
+                            currentOrderNames.splice(tgtIdx, 0, sourceName);
+                            
+                            // 個人用設定に即時保存
+                            const user = state.currentUser || "default";
+                            state.userCustomOrder[user] = currentOrderNames;
+                            saveData();
+                            renderDutySelectorGrid(name, dateStr); // 再描画
+                        }
+                    });
+                }
+
+                const currentVal = state.duties[m]?.[name]?.[dateStr]?.d1;
+                const isSelected = !state.isOrderEditMode && currentVal === style.name;
+
+                const btn = document.createElement("div");
+                btn.className = `p-2 text-xs font-bold text-center truncate min-h-[36px] flex items-center justify-center w-full h-full
+                    ${isSelected ? 'bg-indigo-600 text-white rounded' : 'text-gray-700 hover:bg-indigo-50'}`;
+                btn.textContent = style.name || "ー";
+                
+                // 通常モードの時だけクリックで勤務を確定
+                if (!state.isOrderEditMode) {
+                    btn.classList.add("cursor-pointer");
+                    btn.addEventListener("click", () => {
+                        state.duties[m][name][dateStr].d1 = style.name;
+                        saveData();
+                        renderAll();
+                        toggleModal("dutySelectorModal", false);
+                    });
+                } else {
+                    // 並び替えモード時は十字架アイコンを出す
+                    const icon = document.createElement("div");
+                    icon.className = "absolute top-0.5 right-1 text-[9px] text-indigo-400";
+                    icon.innerHTML = `<i class="fa-solid fa-arrows-up-down-left-right"></i>`;
+                    cellWrapper.appendChild(icon);
+                }
+
+                cellWrapper.appendChild(btn);
+                grid.appendChild(cellWrapper);
+            });
+        }
+
         function openDutySelector(name, dateStr) {
             state.activeCellTarget = { name, dateStr };
-            const modal = document.getElementById("dutySelectorModal");
+            state.isOrderEditMode = false; // 初期状態は通常選択
+            
             const title = document.getElementById("selectorModalTitle");
             const sub = document.getElementById("selectorModalSub");
-            const grid = document.getElementById("dutySelectorGrid");
-            const m = state.currentMonth;
             
             title.textContent = `${name} さんの勤務選択`;
             sub.textContent = `対象日: ${dateStr}`;
-            grid.innerHTML = "";
             
-            state.dutyStyles.forEach(style => {
-                const btn = document.createElement("button");
-                const currentVal = state.duties[m][name][dateStr].d1;
-                
-                btn.className = `p-2 text-xs font-bold border rounded transition-all text-center truncate shadow-sm active:scale-95 min-h-[36px]
-                    ${currentVal === style.name 
-                        ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-200' 
-                        : 'bg-gray-50 hover:bg-indigo-50 text-gray-700 border-gray-200'}`;
-                
-                btn.textContent = style.name || "ー";
-                btn.addEventListener("click", () => {
-                    state.duties[m][name][dateStr].d1 = style.name;
-                    saveData();
-                    renderAll();
-                    toggleModal("dutySelectorModal", false);
-                });
-                grid.appendChild(btn);
-            });
-            
+            updateOrderModeUI();
+            renderDutySelectorGrid(name, dateStr);
             toggleModal("dutySelectorModal", true);
+        }
+
+        // 🔄 並び替えモードUIの切り替え
+        function updateOrderModeUI() {
+            const btnText = document.getElementById("textOrderMode");
+            const btnToggle = document.getElementById("btnToggleOrderMode");
+            const hint = document.getElementById("orderModeHint");
+            
+            if (state.isOrderEditMode) {
+                btnText.textContent = "確定";
+                btnToggle.className = "text-[10px] bg-green-600 hover:bg-green-700 border border-green-600 text-white font-bold py-1 px-2.5 rounded flex items-center space-x-1 transition-colors";
+                hint.classList.remove("hidden");
+            } else {
+                btnText.textContent = "並び替え";
+                btnToggle.className = "text-[10px] bg-slate-100 hover:bg-slate-200 border text-slate-700 font-bold py-1 px-2.5 rounded flex items-center space-x-1 transition-colors";
+                hint.classList.add("hidden");
+            }
         }
 
         function calculateOffDays(name) {
@@ -892,7 +999,7 @@
             
             const ws = XLSX.utils.aoa_to_sheet(matrix);
             ws['!rows'] = [];
-            ws['!rows'][2] = { hpt: (state.customHeight * state.customRatio) * 0.75 }; // 動的サイズに合わせた行高換算
+            ws['!rows'][2] = { hpt: (state.customHeight * state.customRatio) * 0.75 }; 
             
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "勤務表");
@@ -980,7 +1087,16 @@
             
             document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
 
-            // 📐 リアルタイム幅・高さ調整スライダーのイベント割り当て
+            // 🔄 並び替えモードトグルイベント
+            document.getElementById("btnToggleOrderMode").addEventListener("click", () => {
+                state.isOrderEditMode = !state.isOrderEditMode;
+                updateOrderModeUI();
+                if (state.activeCellTarget) {
+                    renderDutySelectorGrid(state.activeCellTarget.name, state.activeCellTarget.dateStr);
+                }
+            });
+
+            // 📐 リアルタイム幅・高さ調整スライダー
             document.getElementById("inputCellWidth").addEventListener("input", (e) => {
                 state.customWidth = parseInt(e.target.value, 10);
                 document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
@@ -1012,11 +1128,7 @@
                 if(!state.isAdmin) return;
                 const newMonthVal = document.getElementById("newMonthInput").value; 
                 if(!newMonthVal) { alert("追加したい月を選択してください。"); return; }
-                
-                if(state.availableMonths.includes(newMonthVal)) {
-                    alert("⚠️ その月はすでに存在しています。");
-                    return;
-                }
+                if(state.availableMonths.includes(newMonthVal)) { alert("⚠️ その月はすでに存在しています。"); return; }
                 
                 state.availableMonths.push(newMonthVal);
                 state.availableMonths.sort(); 
@@ -1025,7 +1137,7 @@
                 populateDefaultDuties();
                 updateMonthSelectOptions();
                 renderAll();
-                alert(`📅 ${newMonthVal.split('-')[0]}年${newMonthVal.split('-')[1]}月 を新しく追加しました！`);
+                alert(`📅 ${newMonthVal.split('-')[0]}年${newMonthVal.split('-')[1]}月 を追加しました！`);
             });
 
             document.getElementById("saveConfigBtn").addEventListener("click", () => {
