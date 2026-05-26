@@ -82,7 +82,7 @@
         /* ローディング画面 */
         #loadingOverlay {
             position: fixed; inset: 0; background: rgba(255,255,255,0.8);
-            display: flex; flex-direction: column; items-center: center; justify-content: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 9999; font-weight: bold; color: #4f46e5;
         }
     </style>
@@ -401,7 +401,6 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "save", state: state })
                 });
-                // no-corsモードはレスポンスが取得できないため成否判定はスキップし成功扱いとする
             } catch (error) {
                 console.error("クラウドへの保存に失敗しました。", error);
             } finally {
@@ -526,7 +525,6 @@
                 document.getElementById("mainSystem").classList.remove("hidden");
                 document.getElementById("loginPassword").value = "";
                 
-                // ログイン成功時にクラウドから最新情報を取得
                 await fetchFromCloud();
                 
                 populateDefaultDuties();
@@ -746,7 +744,6 @@
                 if(subRow) subRow.classList.remove("dragging");
                 dragTargetName = null;
                 
-                // 並び替え終了時に保存
                 saveDataLocal();
                 await saveToCloud();
             });
@@ -849,7 +846,6 @@
                         renderAll();
                         toggleModal("dutySelectorModal", false);
                         
-                        // クラウドへ同期
                         await saveToCloud();
                     });
                 } else {
@@ -1146,12 +1142,12 @@
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(async () => {
                 await saveToCloud();
-            }, 1000); // 入力が止まってから1秒後にクラウドへ自動保存
+            }, 1000);
         }
 
         document.addEventListener("DOMContentLoaded", () => {
             setInitialCurrentMonth(); 
-            loadDataLocal(); // まずはすぐ動くようにローカルを読み込む
+            loadDataLocal(); 
             initLoginSelect();
             
             document.getElementById("authBtn").addEventListener("click", handleLogin);
@@ -1159,7 +1155,6 @@
             document.getElementById("closeSelectorModal").addEventListener("click", () => toggleModal("dutySelectorModal", false));
             document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
 
-            // 手動更新ボタン
             document.getElementById("syncBtn").addEventListener("click", async () => {
                 await fetchFromCloud();
                 renderAll();
@@ -1227,14 +1222,13 @@
                 await saveToCloud();
             });
 
-            // メモ入力や予定表入力の変更時
             document.getElementById("dutyTable").addEventListener("input", (e) => {
                 const m = state.currentMonth;
                 if (e.target.classList.contains("duty-input")) {
                     const { name, date, row } = e.target.dataset;
                     state.duties[m][name][date][row] = e.target.value;
                     saveDataLocal();
-                    saveToCloudWithDebounce(); // タイピング中は連続保存せず少し待って保存
+                    saveToCloudWithDebounce(); 
                 }
                 if (e.target.tagName === "TEXTAREA" && e.target.classList.contains("global-input")) {
                     const { date, type } = e.target.dataset;
@@ -1248,7 +1242,6 @@
                 }
             });
             
-            // 入力が完全に離れた（フォーカスアウトした）ら即座に再レンダリング
             document.getElementById("dutyTable").addEventListener("change", (e) => {
                 renderAll();
             });
