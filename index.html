@@ -3,23 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアルタイム勤務表システム Pro V18</title>
+    <title>リアルタイム勤務表システム Pro V19</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* 💻 通常時のサイズ設定 */
-        .duty-cell { min-width: 44px; max-width: 44px; height: 24px; text-align: center; font-size: 11px; white-space: nowrap; overflow: hidden; }
+        /* 🎨 動的スタイル適用用のベース（CSS変数化してJavaScriptからリアルタイム制御） */
+        :root {
+            --cell-width: 44px;
+            --cell-height: 24px;
+            --global-ratio: 3;
+        }
+
+        .duty-cell { 
+            min-width: var(--cell-width); 
+            max-width: var(--cell-width); 
+            height: var(--cell-height); 
+            text-align: center; 
+            font-size: 11px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+        }
         
-        /* 📅 予定・会議の通常時の行幅（勤務行24pxのちょうど3倍＝72pxに固定） */
-        .global-cell { height: 72px !important; min-height: 72px !important; max-height: 72px !important; }
+        /* 📅 予定・会議行の高さ（勤務行高さ × 倍率 で計算） */
+        .global-cell { 
+            height: calc(var(--cell-height) * var(--global-ratio)) !important; 
+            min-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
+            max-height: calc(var(--cell-height) * var(--global-ratio)) !important; 
+        }
         
         /* 📌 テーブルの左側固定設定 */
         .sticky-col { position: sticky; left: 0; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 70px; max-width: 70px; }
         .sticky-col-2 { position: sticky; left: 70px; background-color: white; z-index: 20; box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); min-width: 36px; max-width: 36px; }
         
-        /* 共通予定の縦書き設定（はみ出し防止） */
+        /* 共通予定の縦書き設定 */
         .vertical-text {
             writing-mode: vertical-rl;
             text-orientation: mixed;
@@ -38,21 +56,16 @@
         
         /* 🔍 全表示（全体俯瞰モード）用のスタイルクラス */
         .view-all-mode .duty-cell { min-width: 28px !important; max-width: 28px !important; height: 18px !important; font-size: 9px !important; padding: 0 !important; }
-        
-        /* 全表示のときも、縮小勤務行（18px）の3倍＝54pxに綺麗に連動させます */
         .view-all-mode .global-cell { height: 54px !important; min-height: 54px !important; max-height: 54px !important; }
         .view-all-mode .vertical-text { font-size: 8px !important; padding: 1px 0 !important; }
-        
         .view-all-mode .sticky-col { min-width: 45px !important; max-width: 45px !important; font-size: 9px !important; }
         .view-all-mode .sticky-col-2 { left: 45px !important; min-width: 24px !important; max-width: 24px !important; font-size: 8px !important; }
         .view-all-mode input.duty-input { font-size: 8px !important; }
         .view-all-mode .staff-name-container { max-width: 42px !important; font-size: 9px !important; }
         .view-all-mode .staff-ko-container { font-size: 8px !important; margin-top: 0 !important; }
 
-        /* 📱 スマホ（画面幅768px以下）での通常表示最適化 */
+        /* 📱 スマホでの通常表示最適化 */
         @media (max-width: 768px) {
-            .duty-cell { min-width: 42px; max-width: 42px; height: 23px; font-size: 10px; }
-            .global-cell { height: 69px !important; min-height: 69px !important; max-height: 69px !important; } /* スマホ勤務行23pxの3倍 */
             .sticky-col { left: 0; min-width: 65px !important; max-width: 65px !important; }
             .sticky-col-2 { left: 65px; min-width: 32px !important; max-width: 32px !important; font-size: 9px; }
             input.duty-input { font-size: 9px; }
@@ -93,7 +106,7 @@
         <nav class="bg-indigo-600 text-white shadow-md px-3 sm:px-4 py-3 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-table-list mr-1 text-base sm:text-xl"></i>
-                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V18</span>
+                <span class="font-bold text-sm sm:text-lg tracking-wider">勤務管理 Pro V19</span>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <span id="loginStatus" class="bg-indigo-700 px-2 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium"></span>
@@ -102,6 +115,36 @@
         </nav>
 
         <main class="p-2 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
+            <div id="adminSizeConfigPanel" class="hidden bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl shadow-lg p-4 space-y-3">
+                <div class="flex items-center space-x-2 border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-arrows-to-dot text-amber-400"></i>
+                    <h3 class="text-xs sm:text-sm font-bold tracking-wide text-slate-200">表示サイズ調整（管理者用リアルタイム設定）</h3>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300 font-medium">
+                            <span>📅 勤務セルの幅 (列幅)</span>
+                            <span id="valCellWidth" class="font-mono text-amber-400 font-bold">44px</span>
+                        </div>
+                        <input type="range" id="inputCellWidth" min="30" max="80" value="44" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300 font-medium">
+                            <span>↔️ 勤務行の高さ (1行)</span>
+                            <span id="valCellHeight" class="font-mono text-amber-400 font-bold">24px</span>
+                        </div>
+                        <input type="range" id="inputCellHeight" min="18" max="40" value="24" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-[11px] text-slate-300 font-medium">
+                            <span>📌 予定行の高さ (勤務行の〇倍)</span>
+                            <span id="valGlobalRatio" class="font-mono text-amber-400 font-bold">3.0倍</span>
+                        </div>
+                        <input type="range" id="inputGlobalRatio" min="1.5" max="5.0" step="0.5" value="3.0" class="w-full accent-amber-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-white rounded-xl shadow-sm p-3 sm:p-4 flex flex-col md:flex-wrap md:flex-row gap-3 justify-between items-stretch md:items-center">
                 <div class="flex flex-wrap items-end gap-3">
                     <div>
@@ -252,7 +295,11 @@
             isAdmin: false,
             baseOffDays: 9,
             activeCellTarget: null, 
-            isViewAllMode: false, 
+            isViewAllMode: false,
+            // 📐 セルサイズ設定の初期値
+            customWidth: 44,
+            customHeight: 24,
+            customRatio: 3.0,
             staffsData: [
                 { name: "管理者", pass: "admin", role: "admin" },
                 { name: "佐藤", pass: "1234", role: "user" }
@@ -266,7 +313,7 @@
                 { name: "有/△", offValue: 1 }, { name: "特", offValue: 1 }, { name: "欠", offValue: 0 }, { name: "有/欠", offValue: 0.5 },
                 { name: "欠/有", offValue: 0.5 }, { name: "病", offValue: 0 }, { name: "病/欠", offValue: 0 }, { name: "忌", offValue: 1 },
                 { name: "産", offValue: 1 }, { name: "育", offValue: 1 }, { name: "看", offValue: 0.5 }, { name: "在", offValue: 0 },
-                { name: "在/△", offValue: 0.5 }, { name: "△/在", offValue: 0.5 }, { name: "在/有", offValue: 0.5 }, { name: "有/在", openValue: 0.5 },
+                { name: "在/△", offValue: 0.5 }, { name: "△/在", offValue: 0.5 }, { name: "在/有", offValue: 0.5 }, { name: "有/在", offValue: 0.5 },
                 { name: "措", offValue: 0 }, { name: "am/措", offValue: 0 }, { name: "措/pm", offValue: 0 }, { name: "措/△", offValue: 0.5 },
                 { name: "△/措", offValue: 0.5 }, { name: "措/有", offValue: 0.5 }, { name: "有/措", offValue: 0.5 }
             ], 
@@ -297,14 +344,26 @@
                 state.globalScheduleEvent = parsed.globalScheduleEvent || {};
                 state.baseOffDays = parsed.baseOffDays !== undefined ? parsed.baseOffDays : 9;
                 state.availableMonths = parsed.availableMonths || state.availableMonths;
+                // 📐 サイズ設定をロード
+                state.customWidth = parsed.customWidth !== undefined ? parsed.customWidth : 44;
+                state.customHeight = parsed.customHeight !== undefined ? parsed.customHeight : 24;
+                state.customRatio = parsed.customRatio !== undefined ? parsed.customRatio : 3.0;
             }
             if (!state.staffsData.some(u => u.role === 'admin')) {
                 state.staffsData.unshift({ name: "管理者", pass: "admin", role: "admin" });
             }
+            applyDynamicStyles();
         }
 
         function saveData() {
             localStorage.setItem("gemini_duty_system_v13_state", JSON.stringify(state));
+        }
+
+        // 🎨 CSS変数をドキュメントルートに適用する関数
+        function applyDynamicStyles() {
+            document.documentElement.style.setProperty('--cell-width', `${state.customWidth}px`);
+            document.documentElement.style.setProperty('--cell-height', `${state.customHeight}px`);
+            document.documentElement.style.setProperty('--global-ratio', state.customRatio);
         }
 
         function getDaysInMonth(yearMonth) {
@@ -422,19 +481,30 @@
             const adminConfig = document.getElementById("adminConfig");
             const adminMonthConfig = document.getElementById("adminMonthConfig");
             const adminDragNotice = document.getElementById("adminDragNotice");
+            const adminSizeConfigPanel = document.getElementById("adminSizeConfigPanel");
             
             if (state.isAdmin) {
                 status.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i> ${state.currentUser}`;
                 adminConfig.classList.remove("hidden");
                 adminMonthConfig.classList.remove("hidden");
                 adminDragNotice.classList.remove("hidden");
+                adminSizeConfigPanel.classList.remove("hidden"); // サイズ調整パネルを表示
                 document.getElementById("btnDutyMgmt").classList.remove("hidden");
                 document.getElementById("btnStaffMgmt").classList.remove("hidden");
+
+                // スライダーフォームに現在の内部数値を同期
+                document.getElementById("inputCellWidth").value = state.customWidth;
+                document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
+                document.getElementById("inputCellHeight").value = state.customHeight;
+                document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
+                document.getElementById("inputGlobalRatio").value = state.customRatio;
+                document.getElementById("valGlobalRatio").textContent = `${Number(state.customRatio).toFixed(1)}倍`;
             } else {
                 status.innerHTML = `<i class="fa-solid fa-user mr-1"></i> ${state.currentUser}`;
                 adminConfig.classList.add("hidden");
                 adminMonthConfig.classList.add("hidden");
                 adminDragNotice.classList.add("hidden");
+                adminSizeConfigPanel.classList.add("hidden");
                 document.getElementById("btnDutyMgmt").classList.add("hidden");
                 document.getElementById("btnStaffMgmt").classList.add("hidden");
             }
@@ -785,7 +855,7 @@
                 const dateStr = `${m}-${String(d).padStart(2, '0')}`;
                 const mVal = state.globalScheduleMeet[dateStr] || "";
                 const eVal = state.globalScheduleEvent[dateStr] || "";
-                rTotal.push(mVal || eVal ? `${mVal} | ${eVal}`.replace(/^ \| | \| $/g, "") : "");
+                rCombined.push(mVal || eVal ? `${mVal} | ${eVal}`.replace(/^ \| | \| $/g, "") : "");
             }
             matrix.push(rCombined);
             
@@ -822,7 +892,7 @@
             
             const ws = XLSX.utils.aoa_to_sheet(matrix);
             ws['!rows'] = [];
-            ws['!rows'][2] = { hpt: 40 }; 
+            ws['!rows'][2] = { hpt: (state.customHeight * state.customRatio) * 0.75 }; // 動的サイズに合わせた行高換算
             
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "勤務表");
@@ -909,6 +979,28 @@
             document.getElementById("closeSelectorModal").addEventListener("click", () => toggleModal("dutySelectorModal", false));
             
             document.getElementById("btnToggleViewAll").addEventListener("click", toggleViewAllMode);
+
+            // 📐 リアルタイム幅・高さ調整スライダーのイベント割り当て
+            document.getElementById("inputCellWidth").addEventListener("input", (e) => {
+                state.customWidth = parseInt(e.target.value, 10);
+                document.getElementById("valCellWidth").textContent = `${state.customWidth}px`;
+                applyDynamicStyles();
+                saveData();
+            });
+
+            document.getElementById("inputCellHeight").addEventListener("input", (e) => {
+                state.customHeight = parseInt(e.target.value, 10);
+                document.getElementById("valCellHeight").textContent = `${state.customHeight}px`;
+                applyDynamicStyles();
+                saveData();
+            });
+
+            document.getElementById("inputGlobalRatio").addEventListener("input", (e) => {
+                state.customRatio = parseFloat(e.target.value);
+                document.getElementById("valGlobalRatio").textContent = `${state.customRatio.toFixed(1)}倍`;
+                applyDynamicStyles();
+                saveData();
+            });
 
             document.getElementById("monthSelect").addEventListener("change", (e) => { 
                 state.currentMonth = e.target.value; 
